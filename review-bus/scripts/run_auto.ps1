@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string] $Root = $PSScriptRoot,
     [int] $MaxTurns = 20,
     [int] $SleepSeconds = 2,

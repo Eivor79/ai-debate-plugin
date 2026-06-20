@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)] [string] $Topic,   # review_bus topic folder name or full path
     [string] $UntilOwner = "",                          # exit when status.owner equals this (e.g. 'claude','human')
     [string] $UntilStatusLike = "",                     # exit when status.status -like matches (e.g. 'decided','ready_for_claude*')

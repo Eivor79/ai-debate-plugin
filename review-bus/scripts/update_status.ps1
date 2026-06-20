@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)] [string] $TopicDir,
     [Parameter(Mandatory = $true)] [hashtable] $Set,
     [switch] $Force
