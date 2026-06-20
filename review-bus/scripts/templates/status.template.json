@@ -1,0 +1,16 @@
+{
+  "status": "draft",
+  "owner": "human",
+  "next_action": "design",
+  "current_doc": "topic.md",
+  "auto": false,
+  "allow_code_change": false,
+  "updated_at": "YYYY-MM-DD",
+  "priority": "normal",
+  "next_doc": "001_codex_design.md",
+  "lock_owner": "",
+  "lock_until": "",
+  "touches_paths": [],
+  "blocked_reason": "",
+  "notes": ""
+}

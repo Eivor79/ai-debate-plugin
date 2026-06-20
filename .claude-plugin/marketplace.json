@@ -1,0 +1,13 @@
+{
+  "name": "review-bus-tools",
+  "owner": {
+    "name": "blue4"
+  },
+  "plugins": [
+    {
+      "name": "review-bus",
+      "source": "./review-bus",
+      "description": "File-based adversarial review workflow (Claude/Codex): status.json state machine, run_auto coordinator, wait-for-review autoresume, topic scaffolding, and rules."
+    }
+  ]
+}
