@@ -1,115 +1,59 @@
 # AI Debate Review (`ai-debate`)
 
-여러 AI(Claude · Codex)가 한 주제를 라운드로 토론·적대검증(설계 → 공격 → 반박 → 결정)해 근거 있는 결론을 전달하는 Claude Code 플러그인.
-A Claude Code plugin where multiple AI agents (Claude, Codex) **debate and adversarially verify** a topic across structured rounds (design → attack → rebuttal → decision) and deliver a reasoned **decision to you**.
+**Read in other languages / 다른 언어: English · [한국어](./README.ko.md)**
 
-**[한국어](#한국어) · [English](#english)**
+A Claude Code plugin where multiple AI agents (Claude, Codex) **debate and adversarially verify** a topic
+across structured rounds (design → attack → rebuttal → decision) and deliver a reasoned **decision to you**.
+Includes a hardened unattended coordinator and an async-review auto-resume watcher.
 
 ---
 
-## 🚀 설치 / Install
+## 🚀 Install
 
 ```text
 /plugin marketplace add https://github.com/Eivor79/ai-debate-plugin
 /plugin install ai-debate@ai-debate-tools
 ```
 
-설치 후 **Claude Code를 완전히 재시작**하세요. 명령에는 네임스페이스가 붙습니다 — `/ai-debate:review-init`.
-After installing, **fully restart Claude Code**. Commands are namespaced — `/ai-debate:review-init`.
-
-업데이트 / Update: push to this repo → users run `/plugin marketplace update`.
+After installing, **fully restart Claude Code** (plugin commands/skills load at startup). Commands are
+namespaced — `/ai-debate:review-init`. Update later: push to this repo → users run `/plugin marketplace update`.
 
 ---
 
-## 💡 사용 팁 & 예제 / Tips & Examples
+## 💡 Tips & Examples
 
-**명령을 외울 필요 없습니다.** Claude에게 자연어로 의도를 말하면 `ai-debate` 스킬이 자동 발동해 알맞은 동작을 합니다.
-You don't need to memorize commands — just say the intent; the skill auto-activates and picks the right action.
+**You don't need to memorize commands.** Just say the intent in natural language — the `ai-debate` skill
+auto-activates and picks the right action.
 
-| 이렇게 말하면 / Say this | 일어나는 일 / What happens |
+| Say this | What happens |
 |---|---|
-| "이 레포에 리뷰 셋업해" | 워크스페이스 스캐폴딩 (`review-init`) |
-| "〈주제〉로 새 리뷰 주제 열어" | 토픽 생성 + 설계 라운드 (`review-new`) |
-| "리뷰 진행" / "리뷰 돌려" / "pr 진행" | 코디네이터 실행 — Claude·Codex 라운드 (`review-run`) |
-| "리뷰 끝나면 이어서 해" | 완료까지 대기 후 자동 재개 (`review-wait`) |
-| "리뷰 현황 / 뭐 막혔어?" | 큐·blocked 요약 (`review-status`) |
+| "set up reviews in this repo" | scaffold the workspace (`review-init`) |
+| "open a review topic on `<subject>`" | create topic + design round (`review-new`) |
+| "run the review" / "start the AI debate" | run the coordinator — Claude·Codex rounds (`review-run`) |
+| "resume when the review is done" | wait then auto-resume (`review-wait`) |
+| "what's the review status / what's blocked?" | queue / blocked summary (`review-status`) |
 
-**실제 사용 흐름 예 / Example flow**
+**Example flow**
 
 ```text
-나: "ai-debate 플러그인 개선점으로 리뷰 주제 하나 열어줘"
-  → Claude가 topic.md + 001 설계(DESIGNER) 작성
+You: "open a review topic on the ai-debate plugin improvements"
+  → Claude writes topic.md + 001 design (DESIGNER)
 
-나: "리뷰 진행"
-  → 코디네이터가 Codex 공격(002 ATTACKER) 실행
-  → 완료 시 세션 자동 재개 → Claude 반박(003 REBUTTER) → finding별 평결
-  → 쟁점이 사람 결정이면 owner=human 으로 멈추고 질문
+You: "run the review"
+  → coordinator runs Codex attack (002 ATTACKER)
+  → on completion the session auto-resumes → Claude rebuttal (003 REBUTTER) → per-finding verdicts
+  → if a call is the human's, it stops at owner=human and asks you
 
-나: (질문에 답)
-  → Claude가 decision.md 확정 → 채택분 구현
+You: (answer)
+  → Claude finalizes decision.md → implements the adopted items
 ```
 
-> 팁 / Tip: 코드까지 바꾸려면 `decision.md` 확정 + `allow_code_change=true` + **당신의 승인**이 필요합니다(안전장치).
-> 처음엔 가볍게 `/ai-debate:review-status`로 현황만 봐도 됩니다.
-> To change code you still need a finalized `decision.md` + `allow_code_change=true` + your approval.
+> Tip: to change code you still need a finalized `decision.md` + `allow_code_change=true` + **your approval** (safety gate).
+> Start light: `/ai-debate:review-status` just shows the current state.
 
 ---
 
-## 한국어
-
-리뷰 워크스페이스는 **파일 기반 멀티에이전트 토론장**입니다. 에이전트들이 한 토픽에 대해
-`topic.md` → `001_..._design.md` → `002_..._attack.md` → `003_..._rebuttal.md` → `decision.md`
-문서를 주고받으며 서로의 주장을 **적대적으로 검증**하고, 합의된 결정을 사용자에게 전달합니다.
-기본 폴더 `llm_wiki/ai_debate/`(설정 가능, 코디네이터는 폴더명 독립). 상태는 토픽별 `status.json`이 관리.
-
-> 명령이 길어 번거로우면 "리뷰 진행" 같은 **자연어로 말하면** Claude가 알아서 스킬을 호출하게 둘 수 있습니다.
-
-### 빠른 시작
-
-```text
-/ai-debate:review-init                 # 워크스페이스 llm_wiki/ai_debate/ + 스크립트·규칙 셋업
-/ai-debate:review-new my-first-topic   # 새 토픽 생성 (topic.md + status.json)
-/ai-debate:review-run --watch          # 코디네이터 무인 실행
-/ai-debate:review-wait <topic> --until-owner claude   # 리뷰 끝나면 자동 재개
-/ai-debate:review-status               # 큐 / 막힌 것 / 사람 대기 현황
-```
-
-### 명령 / 스킬
-
-| 명령 | 설명 |
-|---|---|
-| `/ai-debate:review-init [dir]` | 현재 레포에 워크스페이스·스크립트·템플릿·규칙 셋업 |
-| `/ai-debate:review-new <slug> [priority]` | 새 토픽 생성 |
-| `/ai-debate:review-run [--watch ...]` | 코디네이터 실행(owner 기준 Claude/Codex 호출, 역할별 프롬프트) |
-| `/ai-debate:review-wait <topic> [--until-...]` | 진전까지 백그라운드 대기 → 자동 재개 |
-| `/ai-debate:review-status [topic]` | 큐/blocked/human 대기 요약 |
-
-스킬 `ai-debate:ai-debate` — 워크플로 규칙·역할·검증 체계. "리뷰 진행"/"ai debate" 등에 자동 발동.
-
-### 리뷰 품질 (역할 · findings · 평결)
-
-각 라운드는 **역할**을 갖고 구조화된 `## Findings`(`id`/`severity`/`confidence`/`claim`/`evidence`/`refutable_by`)를 씁니다.
-- **DESIGNER** 설계+자가비판 · **ATTACKER** 강한 구체 반박 · **REBUTTER** finding별 평결(`CONFIRMED`/`PLAUSIBLE`/`REFUTED`) · **JUDGE** 생존분만 채택.
-- 이 적대적 검증이 "그럴듯하지만 틀린" 결론을 걸러냅니다.
-
-### 규칙 (HARD RULE)
-
-- 다른 에이전트의 라운드를 대신 쓰지 않는다(`owner=<다른 에이전트>`면 멈추고 보고).
-- 리뷰 문서에 `codex:*` 스킬 호출 금지(Codex 라운드는 별도 codex 프로세스).
-- 코드 변경은 `decision.md` 확정 + `allow_code_change=true` + 사람 승인 후에만.
-
-### 코디네이터 안전장치
-
-per-topic 타임아웃, 진전-정체 감지(→`owner=human`), 턴 단위 오류 격리, 단일 인스턴스 뮤텍스, JSONL 로그,
-**scope guard**(worker가 워크스페이스 밖 변경 시 warn+log), `-ClaudeModel`/`-CodexModel` 모델 고정.
-
-### 플랫폼
-
-PowerShell(**Windows 우선**), UTF-8 BOM. **macOS/Linux 지원은 예정**(크로스플랫폼 포팅, 후순위).
-
----
-
-## English
+## 🧩 What it is
 
 The review workspace is a **file-based multi-agent debate space**. Agents exchange
 `topic.md` → `001_..._design.md` → `002_..._attack.md` → `003_..._rebuttal.md` → `decision.md`,
@@ -117,13 +61,11 @@ The review workspace is a **file-based multi-agent debate space**. Agents exchan
 Default workspace `llm_wiki/ai_debate/` (configurable; the coordinator is folder-name-agnostic).
 State is tracked per topic in `status.json`.
 
-> Tedious to type? Just say the intent in natural language and let Claude invoke the right skill.
-
 ### Quick start
 
 ```text
-/ai-debate:review-init                 # scaffold llm_wiki/ai_debate/ + scripts + rules
-/ai-debate:review-new my-first-topic   # create a topic (topic.md + status.json)
+/ai-debate:review-init                 # scaffold the workspace
+/ai-debate:review-new my-first-topic   # create a topic
 /ai-debate:review-run --watch          # run the coordinator (unattended)
 /ai-debate:review-wait <topic> --until-owner claude   # block-then-resume when it's your turn
 /ai-debate:review-status               # queue / blocked / human-pending
@@ -164,13 +106,13 @@ PowerShell (**Windows-first**), UTF-8 BOM. **macOS/Linux support is planned** (c
 
 ---
 
-## 📦 구조 / Layout · License
+## 📦 Layout / License
 
 ```text
-ai-debate-plugin/                  (marketplace repo root)
+ai-debate-plugin/
 ├─ .claude-plugin/marketplace.json
 ├─ LICENSE                         (MIT)
-└─ ai-debate/                      (the plugin)
+└─ ai-debate/
    ├─ .claude-plugin/plugin.json
    ├─ commands/   (5 slash commands)
    ├─ skills/ai-debate/SKILL.md
