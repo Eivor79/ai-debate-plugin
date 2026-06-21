@@ -5,6 +5,9 @@
   "version": "0.1.0",
   "description": "Multiple AI agents (Claude, Codex) debate a topic across structured, adversarially-verified review rounds (design -> attack -> rebuttal -> decision) and deliver a reasoned conclusion to you. Includes a hardened coordinator and an async-review auto-resume watcher.",
   "author": {
-    "name": "blue4"
-  }
+    "name": "Eivor79"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Eivor79/ai-debate-plugin",
+  "repository": "https://github.com/Eivor79/ai-debate-plugin"
 }

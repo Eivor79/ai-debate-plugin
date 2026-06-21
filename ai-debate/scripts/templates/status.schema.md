@@ -26,6 +26,6 @@
 
 - Codex may auto-write docs only when `auto=true`, `owner=codex`, and status is actionable.
 - `run_auto.ps1` may invoke either local CLI when `auto=true`, `owner` is `claude` or `codex`, and status is `ready_for_<owner>*`, `ready_for_decision`, or `ready_for_implementation`.
-- `run_auto.ps1 -EnableExisting` may set `auto=true` for the selected eligible topic before invoking its owner.
+- `run_auto.ps1 -EnableExisting` lets the coordinator act on an eligible topic whose `auto` is `false`, **for that run only**. It does NOT persist `auto=true` to `status.json` — the override is session-scoped, so the topic stays `auto=false` on disk and will not be auto-processed by a later unattended run.
 - Codex may edit code only when `allow_code_change=true`, `touches_paths` is non-empty, and a decision document exists.
 - Trading/order/account paths require explicit human approval even when `allow_code_change=true`.
