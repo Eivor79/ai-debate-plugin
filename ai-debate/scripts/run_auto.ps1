@@ -400,6 +400,54 @@ function Test-NewDocEncoding {
     return $null
 }
 
+function Get-GitChangeSet {
+    # RepoRoot의 git 변경 파일 집합(porcelain) 반환. git repo가 아니거나 git 미설치면 $null.
+    if ($null -eq (Get-Command git -ErrorAction SilentlyContinue)) { return $null }
+    try {
+        $out = & git -C $RepoRoot status --porcelain 2>$null
+        if ($LASTEXITCODE -ne 0) { return $null }
+    }
+    catch { return $null }
+    $set = @{}
+    foreach ($line in @($out)) {
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.Length -le 3) { continue }
+        $p = $line.Substring(3).Trim().Trim('"')
+        if ($p -match ' -> ') { $p = ($p -split ' -> ')[-1].Trim().Trim('"') }   # rename: new path
+        $set[$p] = $true
+    }
+    return $set
+}
+
+function Test-ScopeGuard {
+    # A1 보안 가드(review_bus dogfood decision): worker 실행 후 워크스페이스 폴더 밖 변경을
+    # 탐지해 warn+log 한다. record-first — 차단/롤백은 하지 않는다(오탐 관측 후 승격).
+    # 목적: 자동수락(acceptEdits)+workspace-write 권한이 debate 폴더 밖(코드 등)을 건드린 걸 가시화.
+    param(
+        [Parameter(Mandatory = $true)] $Item,
+        $PreChanges
+    )
+    if ($null -eq $PreChanges) { return }   # git repo 아님 → 스킵
+    $post = Get-GitChangeSet
+    if ($null -eq $post) { return }
+
+    $wsRel = $QueueRoot
+    if ($wsRel.StartsWith($RepoRoot)) { $wsRel = $wsRel.Substring($RepoRoot.Length) }
+    $wsRel = $wsRel.TrimStart('\', '/').Replace('\', '/')
+
+    $outOfScope = @()
+    foreach ($p in $post.Keys) {
+        if ($PreChanges.ContainsKey($p)) { continue }   # 이전부터 있던 변경 제외 (worker가 만든 것만)
+        $norm = $p.Replace('\', '/')
+        if ($norm -eq $wsRel -or $norm.StartsWith($wsRel + '/')) { continue }   # 워크스페이스 안 = 정상
+        $outOfScope += $norm
+    }
+    if ($outOfScope.Count -gt 0) {
+        $list = ($outOfScope -join ', ')
+        Write-Warning "[review_bus_auto] SCOPE: topic=$($Item.topic) worker가 워크스페이스 밖 파일 변경: $list (record-only)"
+        Write-RunLog -Topic $Item.topic -Owner $Item.owner -Action $Item.next_action -Result "out_of_scope_change" -ResultDoc $list
+    }
+}
+
 function Invoke-AgentWithTimeout {
     param(
         [Parameter(Mandatory = $true)] $Item,
@@ -677,6 +725,7 @@ try {
 
         $autoOverride = Get-SessionAutoOverride -Item $item
         $turnStart = Get-Date
+        $preChanges = if (-not $DryRun) { Get-GitChangeSet } else { $null }   # A1 scope guard 기준선
 
         # 턴 단위 throw(에이전트 timeout/nonzero, Lock 실패, 예기치 못한 오류)를 잡아
         # 무인 watcher를 죽이지 않고 다음 토픽으로 계속한다. block 대상은 이미 처리됨.
@@ -696,6 +745,7 @@ try {
                     if ($encodingIssue) {
                         Set-TopicBlocked -Item $item -Reason "generated doc encoding check failed: $encodingIssue"
                     }
+                    Test-ScopeGuard -Item $item -PreChanges $preChanges
                 }
             }
             finally {
