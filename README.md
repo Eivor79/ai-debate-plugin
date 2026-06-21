@@ -21,6 +21,40 @@ After installing, **fully restart Claude Code**. Commands are namespaced — `/a
 
 ---
 
+## 💡 사용 팁 & 예제 / Tips & Examples
+
+**명령을 외울 필요 없습니다.** Claude에게 자연어로 의도를 말하면 `ai-debate` 스킬이 자동 발동해 알맞은 동작을 합니다.
+You don't need to memorize commands — just say the intent; the skill auto-activates and picks the right action.
+
+| 이렇게 말하면 / Say this | 일어나는 일 / What happens |
+|---|---|
+| "이 레포에 리뷰 셋업해" | 워크스페이스 스캐폴딩 (`review-init`) |
+| "〈주제〉로 새 리뷰 주제 열어" | 토픽 생성 + 설계 라운드 (`review-new`) |
+| "리뷰 진행" / "리뷰 돌려" / "pr 진행" | 코디네이터 실행 — Claude·Codex 라운드 (`review-run`) |
+| "리뷰 끝나면 이어서 해" | 완료까지 대기 후 자동 재개 (`review-wait`) |
+| "리뷰 현황 / 뭐 막혔어?" | 큐·blocked 요약 (`review-status`) |
+
+**실제 사용 흐름 예 / Example flow**
+
+```text
+나: "ai-debate 플러그인 개선점으로 리뷰 주제 하나 열어줘"
+  → Claude가 topic.md + 001 설계(DESIGNER) 작성
+
+나: "리뷰 진행"
+  → 코디네이터가 Codex 공격(002 ATTACKER) 실행
+  → 완료 시 세션 자동 재개 → Claude 반박(003 REBUTTER) → finding별 평결
+  → 쟁점이 사람 결정이면 owner=human 으로 멈추고 질문
+
+나: (질문에 답)
+  → Claude가 decision.md 확정 → 채택분 구현
+```
+
+> 팁 / Tip: 코드까지 바꾸려면 `decision.md` 확정 + `allow_code_change=true` + **당신의 승인**이 필요합니다(안전장치).
+> 처음엔 가볍게 `/ai-debate:review-status`로 현황만 봐도 됩니다.
+> To change code you still need a finalized `decision.md` + `allow_code_change=true` + your approval.
+
+---
+
 ## 한국어
 
 리뷰 워크스페이스는 **파일 기반 멀티에이전트 토론장**입니다. 에이전트들이 한 토픽에 대해
