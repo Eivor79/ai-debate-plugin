@@ -13,6 +13,7 @@
     [switch] $Once,
     [switch] $Watch,
     [switch] $EnableExisting,
+    [switch] $OpenOnComplete,
     [switch] $DryRun
 )
 
@@ -448,6 +449,23 @@ function Test-ScopeGuard {
     }
 }
 
+function Open-TopicFolderIfTerminal {
+    # F8(decision 2026-06-21): 리뷰가 terminal(decided/owner=human)에 도달하면 토픽 폴더를
+    # 탐색기로 연다. opt-in(-OpenOnComplete), 토픽당 1회. Windows explorer 한정(크로스플랫폼=트랙B).
+    param(
+        [Parameter(Mandatory = $true)] $Item,
+        [Parameter(Mandatory = $true)] $OpenedSet
+    )
+    if ($OpenedSet.ContainsKey($Item.topic)) { return }
+    $sig = Get-TopicStatusSignature -Item $Item
+    if ($null -eq $sig) { return }
+    $terminal = ($sig.owner -eq 'human') -or ($sig.status -like 'decided*')
+    if (-not $terminal) { return }
+    $OpenedSet[$Item.topic] = $true
+    try { Start-Process explorer.exe -ArgumentList $Item.path | Out-Null } catch { }
+    Write-RunLog -Topic $Item.topic -Owner $sig.owner -Action "open_folder" -Result "opened_folder" -ResultDoc $Item.path
+}
+
 function Invoke-AgentWithTimeout {
     param(
         [Parameter(Mandatory = $true)] $Item,
@@ -690,6 +708,7 @@ try {
     # 비-watch(-Once 등)는 기존처럼 MaxTurns로 제한.
     $turn = 0
     $idlePolls = 0
+    $openedTopics = @{}   # F8: -OpenOnComplete 시 토픽당 1회만 폴더 열기
     while ($Watch -or ($turn -lt $MaxTurns)) {
         if ($Watch -and $WatchMaxActions -gt 0 -and $turn -ge $WatchMaxActions) {
             Write-Host "[review_bus_auto] stopped after WatchMaxActions=$WatchMaxActions"
@@ -746,6 +765,7 @@ try {
                         Set-TopicBlocked -Item $item -Reason "generated doc encoding check failed: $encodingIssue"
                     }
                     Test-ScopeGuard -Item $item -PreChanges $preChanges
+                    if ($OpenOnComplete) { Open-TopicFolderIfTerminal -Item $item -OpenedSet $openedTopics }
                 }
             }
             finally {
