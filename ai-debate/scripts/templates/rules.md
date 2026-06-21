@@ -4,21 +4,21 @@
 
 ## 목적
 
-`review_bus/`는 완성 문서 저장소가 아니라 **토론 및 리뷰 작업 공간**입니다. 실제 소스 코드 수정은 이 프로세스에 포함되지 않으며, 문서(md)를 통한 분석과 합의만 진행합니다: 설계(Design) → 공격/감사(Attack/Audit) → 반박(Rebuttal) → 결정(Decision).
+`ai_debate/`는 완성 문서 저장소가 아니라 **토론 및 리뷰 작업 공간**입니다. 실제 소스 코드 수정은 이 프로세스에 포함되지 않으며, 문서(md)를 통한 분석과 합의만 진행합니다: 설계(Design) → 공격/감사(Attack/Audit) → 반박(Rebuttal) → 결정(Decision).
 
-최종 정리된 지식은 `wiki/`에, 진행 중 논쟁은 `review_bus/`에 남깁니다.
+최종 정리된 지식은 `wiki/`에, 진행 중 논쟁은 `ai_debate/`에 남깁니다.
 
 ## HARD RULE
 
 - **다른 에이전트의 리뷰 라운드를 대신 작성하지 않는다.** `status.json`의 `owner`가 다른 에이전트면 멈추고 사용자에게 보고한다.
-- review_bus 문서 작성에 `codex:*` 스킬을 호출하지 않는다. Codex 라운드는 별도 Codex 프로세스(코디네이터의 `codex exec` 또는 사용자 Codex 세션)에서 나온다.
+- ai_debate 문서 작성에 `codex:*` 스킬을 호출하지 않는다. Codex 라운드는 별도 Codex 프로세스(코디네이터의 `codex exec` 또는 사용자 Codex 세션)에서 나온다.
 - `decision.md` 확정 + `allow_code_change=true` + 사람 승인 전에는 코드 변경 금지.
 - 커밋/푸시/실제 PR 생성은 사용자가 명시적으로 요청할 때만.
 
 ## 폴더/파일 규칙
 
 ```text
-review_bus/
+ai_debate/
   README.md            # 이 규칙
   index.md             # 주제 인덱스
   _templates/          # status/topic 템플릿 + 스키마
@@ -43,4 +43,4 @@ review_bus/
 
 ## 요청 문구
 
-사용자가 `pr 진행`, `리뷰 진행` 등으로 요청하면 `review_bus/`의 해당 주제 작업을 `status.json` 기준으로 이어서 진행한다는 뜻입니다.
+사용자가 `pr 진행`, `리뷰 진행` 등으로 요청하면 `ai_debate/`의 해당 주제 작업을 `status.json` 기준으로 이어서 진행한다는 뜻입니다.

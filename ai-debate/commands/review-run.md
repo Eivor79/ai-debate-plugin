@@ -1,11 +1,11 @@
 ---
-description: Start the review_bus coordinator (run_auto.ps1) that drives Claude/Codex review rounds
+description: Start the ai_debate coordinator (run_auto.ps1) that drives Claude/Codex review rounds
 argument-hint: "[--watch] [extra run_auto.ps1 flags]"
 ---
 
-Start the review_bus coordinator for the current repository.
+Start the ai_debate coordinator for the current repository.
 
-Resolve the review_bus root (directory containing `run_auto.ps1`; default `llm_wiki/review_bus`).
+Resolve the ai_debate root (directory containing `run_auto.ps1`; default `llm_wiki/ai_debate`).
 
 Run the coordinator with the user's flags: `$ARGUMENTS` (pass through to `run_auto.ps1`). Common forms:
 - `/review-run --watch` → `run_auto.ps1 -Watch` (unattended loop until stopped)

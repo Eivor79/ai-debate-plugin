@@ -3,7 +3,7 @@ description: Wait (in background) for a review to complete, then auto-resume thi
 argument-hint: "<topic-folder> [--until-owner X | --until-status PATTERN | --until-doc GLOB]"
 ---
 
-Block-then-auto-resume on a review_bus review.
+Block-then-auto-resume on a ai_debate review.
 
 Arguments: `$ARGUMENTS` — first token is the topic folder (name or path). Optional completion condition:
 - `--until-owner <owner>` → `wait_for_review.ps1 -UntilOwner <owner>` (e.g. wait until it's your turn: `claude`)
@@ -13,7 +13,7 @@ Arguments: `$ARGUMENTS` — first token is the topic folder (name or path). Opti
 
 Steps:
 
-1. Resolve the review_bus root (directory containing `wait_for_review.ps1`; default `llm_wiki/review_bus`).
+1. Resolve the ai_debate root (directory containing `wait_for_review.ps1`; default `llm_wiki/ai_debate`).
 2. Launch `wait_for_review.ps1` with the parsed args **using `run_in_background`** so the session spends no tokens while waiting. The watcher exits when the review advances, and the harness re-invokes this session.
 3. When re-invoked (the background task completes), read the watcher's output (the JSON line + `NEXT:` hint), then continue automatically based on the result:
    - `owner` is your agent (e.g. `claude`) and status actionable → read the `latest_doc` and write the next round / implement.

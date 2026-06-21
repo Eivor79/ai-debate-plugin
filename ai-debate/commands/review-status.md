@@ -1,11 +1,11 @@
 ---
-description: Show the review_bus queue — actionable, blocked, and human-pending topics, plus recent coordinator activity
+description: Show the ai_debate queue — actionable, blocked, and human-pending topics, plus recent coordinator activity
 argument-hint: "[topic-folder for detail]"
 ---
 
-Summarize the current review_bus state for the repository.
+Summarize the current ai_debate state for the repository.
 
-Resolve the review_bus root (directory containing `run_auto.ps1`; default `llm_wiki/review_bus`).
+Resolve the ai_debate root (directory containing `run_auto.ps1`; default `llm_wiki/ai_debate`).
 
 If a topic folder is given (`$1`), show its detail: `status.json` fields, the document list, and the latest numbered doc / `decision.md`.
 

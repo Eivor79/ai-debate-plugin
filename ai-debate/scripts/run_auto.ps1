@@ -494,17 +494,65 @@ function New-AgentPrompt {
         "Act only if status.json still has auto=true, owner=$Agent, and status is actionable."
     }
 
+    # Review-quality levers: detect the round role from next_doc/next_action and inject
+    # role-specific guidance + a structured findings schema + adversarial verification rules.
+    $nd = "$($Item.next_doc)".ToLower()
+    $na = "$($Item.next_action)".ToLower()
+    $role =
+        if ($nd -match 'design' -or $na -match 'design') { 'designer' }
+        elseif ($nd -match 'attack' -or $na -match 'attack') { 'attacker' }
+        elseif ($nd -match 'rebuttal' -or $na -match 'rebut') { 'rebutter' }
+        elseif ($nd -match 'decision' -or $na -match 'decision' -or $na -match 'decide') { 'judge' }
+        else { 'generic' }
+
+    $findingsSchema = (@(
+            'Structured findings -- include a "## Findings" section; for EACH issue, one block:',
+            '  - id: F1 (then F2, F3, ...)',
+            '  - severity: high | medium | low',
+            '  - confidence: high | medium | low',
+            '  - claim: one falsifiable sentence',
+            '  - evidence: concrete file:line, data, quote, or repro (no hand-waving)',
+            '  - refutable_by: the specific observation that would disprove the claim'
+        ) -join "`n")
+
+    $roleLines = switch ($role) {
+        'designer' { @(
+                'ROLE: DESIGNER. Write the design (target files, signatures, data flow, edge cases).',
+                'Then add a "## Self-critique" section that adversarially lists the strongest objections',
+                'to YOUR OWN design (correctness, feasibility, measurement validity), using the schema below.',
+                $findingsSchema) }
+        'attacker' { @(
+                'ROLE: ATTACKER (adversarial reviewer). Find the strongest, most concrete refutations of the',
+                'current design/claim. Priority: correctness > feasibility > measurement validity > scope.',
+                'Do not soften to be agreeable. Output every issue with the schema below:',
+                $findingsSchema,
+                'End with the single most likely reason this design fails in practice.') }
+        'rebutter' { @(
+                'ROLE: REBUTTER. For EACH finding from the latest attack round, assign a verdict + reason:',
+                '  - CONFIRMED: real; concede it and state the fix or scope change.',
+                '  - PLAUSIBLE: real under a realistic condition you name; keep with caveats.',
+                '  - REFUTED: provably wrong; you MUST cite the concrete code/data that disproves it.',
+                'Do not mark REFUTED without a constructible counter. Carry the schema fields forward.') }
+        'judge' { @(
+                'ROLE: JUDGE. Write decision.md. Weigh only findings that SURVIVED verification:',
+                'adopt CONFIRMED findings and well-evidenced PLAUSIBLE ones; drop REFUTED.',
+                'State: adopted findings (by id), the decision (adopt/reject/revise + scope), the rationale,',
+                'residual risks, and the next concrete step. No new arguments -- decide.') }
+        default { @() }
+    }
+    $roleBlock = if ($roleLines.Count -gt 0) { "Round role and review-quality rules:`n" + ($roleLines -join "`n") } else { "" }
+
     @"
-You are running as the $Agent worker for the review_bus automation loop.
+You are running as the $Agent worker for the review automation loop.
 
 Repository root: $rootPath
 Topic directory: $topicPath
 
 Required startup:
-1. Read $rootPath\LLM_SHARED.md.
-2. Read $rootPath\llm_wiki\wiki\index.md.
-3. Read $rootPath\llm_wiki\review_bus\README.md.
-4. Read $rootPath\llm_wiki\review_bus\index.md.
+1. Read $rootPath\LLM_SHARED.md (if present).
+2. Read the wiki index under $rootPath (if present).
+3. Read $QueueRoot\README.md (the review workspace rules).
+4. Read $QueueRoot\index.md.
 5. Read the topic status.json, topic.md, current_doc, and latest relevant numbered docs.
 
 Encoding/logging rule:
@@ -523,8 +571,10 @@ Current queue item:
 Do the requested review_bus step end to end:
 - For document-only review/rebuttal/design/decision steps, write the expected next_doc or decision.md.
 - Update the topic status.json to the next owner/status/action/doc.
-- Update llm_wiki/review_bus/index.md if the visible current doc or next request changed.
-- Append a concise dated line to llm_wiki/wiki/log.md when durable wiki/review_bus state changes.
+- Update the review index.md in $QueueRoot if the visible current doc or next request changed.
+- Append a concise dated line to the wiki log under $rootPath when durable review/wiki state changes.
+
+$roleBlock
 
 Safety:
 - Keep changes limited to review_bus/wiki metadata unless status.json explicitly allows code change.

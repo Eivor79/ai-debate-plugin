@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "ai-debate",
+  "displayName": "AI Debate Review",
+  "version": "0.1.0",
+  "description": "Multiple AI agents (Claude, Codex) debate a topic across structured, adversarially-verified review rounds (design -> attack -> rebuttal -> decision) and deliver a reasoned conclusion to you. Includes a hardened coordinator and an async-review auto-resume watcher.",
+  "author": {
+    "name": "blue4"
+  }
+}
