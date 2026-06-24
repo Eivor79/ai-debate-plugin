@@ -6,6 +6,10 @@ A Claude Code plugin where multiple AI agents (Claude, Codex) **debate and adver
 across structured rounds (design → attack → rebuttal → decision) and deliver a reasoned **decision to you**.
 Includes a hardened unattended coordinator and an async-review auto-resume watcher.
 
+**Works in git and non-git projects.** By default a new topic is **autonomous**: start the coordinator
+once and the agents run the entire debate to `decision.md` by themselves — no per-round human toggling.
+Human approval is required only for **code changes** afterward (`--manual` opts back into per-round review).
+
 ---
 
 ## 🚀 Install
@@ -75,8 +79,8 @@ State is tracked per topic in `status.json`.
 
 | Command | Purpose |
 |---|---|
-| `/ai-debate:review-init [dir]` | Scaffold workspace, scripts, templates, rules into the repo |
-| `/ai-debate:review-new <slug> [priority]` | Open a new topic |
+| `/ai-debate:review-init [dir]` | Scaffold workspace, scripts, templates, rules into the project (git or non-git; `.gitignore` only when git is present) |
+| `/ai-debate:review-new <slug> [priority] [--manual]` | Open a new topic (autonomous by default; `--manual` for per-round human review) |
 | `/ai-debate:review-run [--watch ...]` | Start the coordinator (invokes Claude/Codex by `owner`, role-specific prompts) |
 | `/ai-debate:review-wait <topic> [--until-...]` | Wait in background for progress → auto-resume |
 | `/ai-debate:review-status [topic]` | Queue / blocked / human-pending summary |
@@ -103,6 +107,8 @@ JSONL run log, **scope guard** (warns+logs worker changes outside the workspace)
 ### Platform
 
 PowerShell (**Windows-first**), UTF-8 BOM. **macOS/Linux support is planned** (cross-platform port, deferred).
+Project type **git or non-git**: the project root is resolved via `git rev-parse --show-toplevel` when git is
+available, else the workspace parent (override with `run_auto.ps1 -RepoRoot <path>`); git-only steps are skipped without a repo.
 
 ---
 

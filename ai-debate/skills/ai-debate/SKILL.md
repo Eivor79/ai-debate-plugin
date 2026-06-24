@@ -11,6 +11,16 @@ claims, and converge on a decision delivered to the user. It is NOT a finished-d
 knowledge graduates to the wiki, in-flight argument stays in the workspace. Default workspace folder:
 `llm_wiki/ai_debate/` (configurable; the coordinator is folder-name-agnostic).
 
+**Works in git AND non-git projects.** Git-only steps (`.gitignore`) are skipped when no git repo is
+present, and the coordinator resolves the project root via `git rev-parse --show-toplevel` when git is
+available, falling back to the workspace's parent otherwise (override with `run_auto.ps1 -RepoRoot`).
+
+**Default mode = autonomous to completion.** New topics scaffold with `auto=true`, so once the
+coordinator is started (`/review-run`) the agents run the whole debate (design → attack → rebuttal →
+decision) by themselves with no per-round human toggling. Human approval is required **only for code
+changes** (`allow_code_change=true` after `decision.md`). For classic per-round human-gated review,
+create the topic with `--manual` (`auto=false`).
+
 ## Core artifacts (per topic folder)
 
 - `topic.md` — background, problem, competing hypotheses.

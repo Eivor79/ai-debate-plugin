@@ -1,5 +1,6 @@
 ﻿param(
     [string] $Root = $PSScriptRoot,
+    [string] $RepoRoot = "",
     [int] $MaxTurns = 20,
     [int] $SleepSeconds = 2,
     [int] $IdleSleepSeconds = 10,
@@ -42,7 +43,37 @@ catch {
 }
 
 $QueueRoot = (Resolve-Path -LiteralPath $Root).Path
-$RepoRoot = (Resolve-Path -LiteralPath (Join-Path $QueueRoot "..\..")).Path
+
+function Resolve-RepoRoot {
+    # 프로젝트 루트를 git/비-git 양쪽에서 견고하게 해석한다.
+    #   1) -RepoRoot 명시 → 그대로(가능하면 절대경로화).
+    #   2) git 설치 + QueueRoot 가 워크트리 안 → git toplevel.
+    #   3) 폴백: <root>/<wikidir>/<ws> 관례의 2단계 상위, 실패 시 워크스페이스 부모.
+    # git 미설치/비-git 에서는 throw 없이 조용히 폴백한다.
+    param(
+        [string] $Explicit,
+        [Parameter(Mandatory = $true)] [string] $QueueRoot
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Explicit)) {
+        try { return (Resolve-Path -LiteralPath $Explicit).Path } catch { return $Explicit }
+    }
+
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        try {
+            $top = & git -C $QueueRoot rev-parse --show-toplevel 2>$null
+            if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($top)) {
+                return (Resolve-Path -LiteralPath ($top.Trim())).Path
+            }
+        }
+        catch { }
+    }
+
+    try { return (Resolve-Path -LiteralPath (Join-Path $QueueRoot "..\..")).Path } catch { }
+    return (Split-Path -Parent $QueueRoot)
+}
+
+$RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -QueueRoot $QueueRoot
 
 $automatedOwners = @("claude", "codex")
 

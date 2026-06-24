@@ -1,16 +1,16 @@
 {
-  "status": "draft",
-  "owner": "human",
+  "status": "ready_for_claude",
+  "owner": "claude",
   "next_action": "design",
   "current_doc": "topic.md",
-  "auto": false,
+  "auto": true,
   "allow_code_change": false,
   "updated_at": "YYYY-MM-DD",
   "priority": "normal",
-  "next_doc": "001_codex_design.md",
+  "next_doc": "001_claude_design.md",
   "lock_owner": "",
   "lock_until": "",
   "touches_paths": [],
   "blocked_reason": "",
-  "notes": ""
+  "notes": "auto=true: agents drive the debate to decision.md autonomously (design -> attack -> rebuttal -> decision). Set auto=false for manual per-round human review. Code changes still require decision.md + allow_code_change=true + human approval."
 }

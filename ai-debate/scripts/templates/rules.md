@@ -2,6 +2,10 @@
 
 여러 에이전트(Claude, Codex)가 같은 주제를 **파일 기반으로 주고받으며 적대적으로 검토**하기 위한 공통 규칙입니다.
 
+> **환경**: git / 비-git 프로젝트 양쪽에서 동작합니다. `.gitignore` 같은 git 전용 단계는 git 저장소일 때만 적용됩니다.
+>
+> **기본 동작 = 자율-완주**: 토픽은 기본적으로 `auto=true`로 생성되어, `/review-run`만 돌리면 에이전트끼리 설계 → 공격 → 반박 → 결정(`decision.md`)까지 **자동으로 끝까지** 진행합니다. 사람 개입은 **코드 변경 승인**에서만 필요합니다(`allow_code_change=true`). 라운드별 사람 검토를 원하면 토픽을 `auto=false`로 두세요(`/review-new ... --manual`).
+
 ## 목적
 
 `ai_debate/`는 완성 문서 저장소가 아니라 **토론 및 리뷰 작업 공간**입니다. 실제 소스 코드 수정은 이 프로세스에 포함되지 않으며, 문서(md)를 통한 분석과 합의만 진행합니다: 설계(Design) → 공격/감사(Attack/Audit) → 반박(Rebuttal) → 결정(Decision).
@@ -39,7 +43,9 @@ ai_debate/
 
 ## status.json 상태 머신
 
-`_templates/status.schema.md` 참조. 코디네이터(`run_auto.ps1`)는 `owner`가 자동 에이전트(claude/codex)이고 status가 actionable(`ready_for_decision`/`ready_for_implementation`/`ready_for_<owner>*`)이며 `auto=true`(또는 `-EnableExisting`)인 토픽만 처리합니다. `owner=human`은 사람 개입 대기입니다.
+`_templates/status.schema.md` 참조. 코디네이터(`run_auto.ps1`)는 `owner`가 자동 에이전트(claude/codex)이고 status가 actionable(`ready_for_decision`/`ready_for_implementation`/`ready_for_<owner>*`)이며 `auto=true`(또는 `-EnableExisting`)인 토픽만 처리합니다. 신규 토픽은 기본 `auto=true`라 별도 토글 없이 바로 자율 진행됩니다. `owner=human`은 사람 개입 대기로, **진짜 차단**(에러/무진전/인코딩 실패/코드변경 승인)에서만 설정되며 — 자율-완주의 정상 종착점입니다.
+
+비-git 프로젝트에서 `RepoRoot`(에이전트 프롬프트의 "Repository root", codex `--cd`)는 git toplevel 대신 워크스페이스 기준으로 자동 해석됩니다. 레이아웃이 특수하면 `run_auto.ps1 -RepoRoot <경로>`로 명시할 수 있습니다.
 
 ## 요청 문구
 

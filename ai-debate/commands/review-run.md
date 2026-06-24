@@ -12,7 +12,8 @@ Run the coordinator with the user's flags: `$ARGUMENTS` (pass through to `run_au
 - `/review-run` → single pass (process the top actionable item once)
 
 Notes to honor:
-- The coordinator invokes the local `claude` and `codex` CLIs as separate processes based on each topic's `status.json` `owner`. It only acts on topics with an actionable status and (`auto=true` or `-EnableExisting`).
+- The coordinator invokes the local `claude` and `codex` CLIs as separate processes based on each topic's `status.json` `owner`. It only acts on topics with an actionable status and (`auto=true` or `-EnableExisting`). Since new topics default to `auto=true`, this single command drives each topic's debate all the way to `decision.md` autonomously.
+- Works in git and non-git projects: the project root is resolved from `git rev-parse --show-toplevel` when git is available, else the workspace parent. Pass `-RepoRoot <path>` to override for unusual layouts.
 - It is resilient: a per-topic timeout or error blocks that topic (`owner=human`) and the loop continues; a single-instance mutex prevents double-runs.
 - For unattended runs, consider `-WatchMaxActions <N>` as a safety cap and `-ClaudeModel`/`-CodexModel` to pin models for review-quality parity.
 - Do NOT pass flags that change trading/order code. The coordinator is for document review rounds; code changes require `allow_code_change=true` + a finalized `decision.md` + human approval.
