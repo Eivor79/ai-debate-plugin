@@ -25,8 +25,12 @@
 
 $ErrorActionPreference = "Stop"
 
+# 플랫폼 감지: PS 5.1(Desktop)에는 $IsWindows 자동변수가 없어 $null → Windows 취급.
+# pwsh(Core)에서는 실값. 이 관용구로 5.1/7 양쪽에서 안전하게 분기한다.
+$onWindows = ($null -eq $IsWindows) -or $IsWindows
+
 try {
-    chcp.com 65001 | Out-Null
+    if ($onWindows) { chcp.com 65001 | Out-Null }
     [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
     [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
     $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
@@ -70,7 +74,8 @@ function Resolve-RepoRoot {
         catch { }
     }
 
-    try { return (Resolve-Path -LiteralPath (Join-Path $QueueRoot "..\..")).Path } catch { }
+    # 주의: "..\.." 한 덩어리는 Unix 에서 백슬래시가 리터럴 문자라 실패 — 중첩 Join-Path 로.
+    try { return (Resolve-Path -LiteralPath (Join-Path (Join-Path $QueueRoot "..") "..")).Path } catch { }
     return (Split-Path -Parent $QueueRoot)
 }
 
@@ -92,7 +97,7 @@ if ($SoloMode) {
 $automatedOwners = @("claude", "codex")
 
 # 이 코디네이터 인스턴스 식별자 (per-topic 락 소유자 표기)
-$myId = "$env:COMPUTERNAME:$PID"
+$myId = "$([Environment]::MachineName):$PID"   # COMPUTERNAME 은 Windows 전용 — MachineName 은 크로스플랫폼
 
 function Get-FieldValue {
     param(
@@ -507,7 +512,12 @@ function Open-TopicFolderIfTerminal {
     $terminal = ($sig.owner -eq 'human') -or ($sig.status -like 'decided*')
     if (-not $terminal) { return }
     $OpenedSet[$Item.topic] = $true
-    try { Start-Process explorer.exe -ArgumentList $Item.path | Out-Null } catch { }
+    # 플랫폼별 폴더 열기: Windows=explorer / macOS=open / Linux=xdg-open (없으면 조용히 스킵)
+    try {
+        if ($onWindows) { Start-Process explorer.exe -ArgumentList $Item.path | Out-Null }
+        elseif ($IsMacOS) { Start-Process open -ArgumentList $Item.path | Out-Null }
+        elseif (Get-Command xdg-open -ErrorAction SilentlyContinue) { Start-Process xdg-open -ArgumentList $Item.path | Out-Null }
+    } catch { }
     Write-RunLog -Topic $Item.topic -Owner $sig.owner -Action "open_folder" -Result "opened_folder" -ResultDoc $Item.path
 }
 
@@ -520,11 +530,13 @@ function Invoke-AgentWithTimeout {
         [Parameter(Mandatory = $true)] [string] $Label
     )
 
-    # claude/codex 는 npm .ps1 셸이라 Start-Process로 직접 못 띄움.
-    # 자식 powershell 안에서 기존 `<prompt> | & claude ...` 파이프를 재현하면
-    # .ps1 셸의 stdin forward(ExpectingInput)가 보존되고, 자식 PID를 잡아
-    # taskkill /T 로 node 자식까지 트리 종료할 수 있다. native exit code는
-    # `exit $LASTEXITCODE` 로 부모가 회수한다.
+    # claude/codex 는 npm 래퍼(.ps1/셸스크립트)라 Start-Process로 직접 못 띄움.
+    # 자식 PowerShell 안에서 기존 `<prompt> | & claude ...` 파이프를 재현하면
+    # 래퍼의 stdin forward(ExpectingInput)가 보존되고, 자식 PID를 잡아
+    # 트리 종료(Windows=taskkill /T, Unix=.NET Kill(entireProcessTree))할 수 있다.
+    # native exit code는 `exit $LASTEXITCODE` 로 부모가 회수한다.
+    # 자식 셸: 현재 엔진과 동일 계열 — Core(pwsh, 크로스플랫폼) vs Desktop(powershell.exe).
+    $hostShell = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell.exe' }
     $startedAt = Get-Date
 
     if ($null -eq (Get-Command $Exe -ErrorAction SilentlyContinue)) {
@@ -543,8 +555,10 @@ function Invoke-AgentWithTimeout {
         [System.IO.File]::WriteAllText($tmp, $Prompt, [System.Text.UTF8Encoding]::new($false))
 
         $inner = "Get-Content -Raw -Encoding utf8 -LiteralPath '$tmp' | & $Exe $argString; exit `$LASTEXITCODE"
-        $proc = Start-Process powershell.exe `
-            -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $inner) `
+        $shellArgs = @("-NoProfile", "-Command", $inner)
+        if ($onWindows) { $shellArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $inner) }
+        $proc = Start-Process $hostShell `
+            -ArgumentList $shellArgs `
             -NoNewWindow -PassThru
 
         if ($AgentTimeoutMinutes -gt 0) {
@@ -556,7 +570,13 @@ function Invoke-AgentWithTimeout {
             $proc | Wait-Process -ErrorAction SilentlyContinue
         }
         if (-not $proc.HasExited) {
-            try { & taskkill /PID $proc.Id /T /F 2>&1 | Out-Null } catch { }
+            # 트리 종료: Windows=taskkill /T, Unix(.NET Core)=Kill($true) — node 자식까지 정리
+            if ($onWindows) {
+                try { & taskkill /PID $proc.Id /T /F 2>&1 | Out-Null } catch { }
+            }
+            else {
+                try { $proc.Kill($true) } catch { try { $proc | Stop-Process -Force -ErrorAction SilentlyContinue } catch { } }
+            }
             $reason = "$Label timed out after $AgentTimeoutMinutes min — process tree killed"
             Write-RunLog -Topic $Item.topic -Owner $Item.owner -Action $Item.next_action -Result "timeout" -DurationSeconds ((Get-Date) - $startedAt).TotalSeconds
             Set-TopicBlocked -Item $Item -Reason $reason
@@ -599,6 +619,10 @@ function New-AgentPrompt {
 
     $rootPath = $RepoRoot
     $topicPath = (Resolve-Path -LiteralPath $Item.path).Path
+    # 프롬프트에 넣는 파일 경로는 OS 구분자에 맞게 생성(Unix에서 백슬래시 표기 방지)
+    $sharedDocPath = Join-Path $rootPath "LLM_SHARED.md"
+    $wsReadmePath = Join-Path $QueueRoot "README.md"
+    $wsIndexPath = Join-Path $QueueRoot "index.md"
     $autoLine = if ($AutoOverride) {
         "Act because the coordinator explicitly enabled this run for this session (-EnableExisting override). status.json on disk may still show auto=false on purpose (the override is session-only and is not persisted) -- do not set auto=true yourself. Still require owner=$Agent and an actionable status before proceeding."
     }
@@ -675,10 +699,10 @@ Repository root: $rootPath
 Topic directory: $topicPath
 
 Required startup:
-1. Read $rootPath\LLM_SHARED.md (if present).
+1. Read $sharedDocPath (if present).
 2. Read the wiki index under $rootPath (if present).
-3. Read $QueueRoot\README.md (the review workspace rules).
-4. Read $QueueRoot\index.md.
+3. Read $wsReadmePath (the review workspace rules).
+4. Read $wsIndexPath.
 5. Read the topic status.json, topic.md, current_doc, and latest relevant numbered docs.
 
 Encoding/logging rule:
@@ -767,18 +791,26 @@ function Invoke-CodexWorker {
 
 # 단일 인스턴스 가드: watcher 중복 기동 시 같은 토픽을 두 에이전트가 잡는 레이스 차단.
 # Global\ 접두로 같은 사용자의 교차 세션(스케줄 세션 vs 대화형) 중복기동까지 차단.
-$mutex = New-Object System.Threading.Mutex($false, "Global\review_bus_auto_coordinator")
+# Unix(.NET Core)에서도 named mutex 는 머신 단위로 동작하나, 혹시 미지원 환경이면
+# 뮤텍스 없이 경고 후 진행한다(per-topic lock 이 2차 방어선).
+$mutex = $null
+try { $mutex = New-Object System.Threading.Mutex($false, "Global\review_bus_auto_coordinator") }
+catch {
+    Write-Warning "[review_bus_auto] named mutex unavailable on this platform ($($_.Exception.Message)) — continuing without single-instance guard (per-topic locks still apply)"
+}
 $haveMutex = $false
 try {
-    try {
-        $haveMutex = $mutex.WaitOne(0)
-    }
-    catch [System.Threading.AbandonedMutexException] {
-        $haveMutex = $true   # 직전 보유 인스턴스가 비정상 종료 → 회수
-    }
-    if (-not $haveMutex) {
-        Write-Warning "[review_bus_auto] another coordinator instance is already running (mutex held) — exiting"
-        return
+    if ($null -ne $mutex) {
+        try {
+            $haveMutex = $mutex.WaitOne(0)
+        }
+        catch [System.Threading.AbandonedMutexException] {
+            $haveMutex = $true   # 직전 보유 인스턴스가 비정상 종료 → 회수
+        }
+        if (-not $haveMutex) {
+            Write-Warning "[review_bus_auto] another coordinator instance is already running (mutex held) — exiting"
+            return
+        }
     }
 
     # -Watch 무인루프는 MaxTurns(기본 20)에 묶이지 않는다(예전엔 20턴마다 watcher가
@@ -867,5 +899,5 @@ finally {
     if ($haveMutex) {
         try { $mutex.ReleaseMutex() } catch { }
     }
-    $mutex.Dispose()
+    if ($null -ne $mutex) { $mutex.Dispose() }
 }

@@ -59,6 +59,30 @@ You: (answer)
 
 ---
 
+## 📜 Real output (dogfooded on this very plugin)
+
+We ran the workflow **on itself**: Claude designed plugin improvements, Codex attacked the design, Claude rebutted, then a judge decided.
+
+```text
+ATTACKER (codex) — 8 structured findings, e.g.:
+  F5  severity:high  claim: coordinator workers run with auto-accepted edits;
+      changes OUTSIDE the review workspace would go undetected
+  F6  severity:med   claim: -EnableExisting docs contradict the actual
+      session-only behavior (doc–implementation mismatch)
+
+REBUTTER (claude) — per-finding verdicts: 7 CONFIRMED / 1 downgraded
+      (F5 was filed low by the designer's self-critique — the attacker
+       escalated it to high, and the rebuttal conceded)
+
+JUDGE — decision.md adopted only the survivors:
+  ✔ security scope guard (warn-first)   ✔ doc fixes   ✔ MIT license + metadata
+  ✔ cross-platform port spun off as its own prioritized topic
+```
+
+The adversarial pass caught what the solo design missed: an **underrated security hole**, a **doc–implementation mismatch the designer wrote himself**, and unpinned evidence. That's the point of the workflow.
+
+---
+
 ## 🧩 What it is
 
 The review workspace is a **file-based multi-agent debate space**. Agents exchange
@@ -109,8 +133,9 @@ JSONL run log, **scope guard** (warns+logs worker changes outside the workspace)
 
 ### Platform
 
-PowerShell (**Windows-first**), UTF-8 BOM. **macOS/Linux support is planned** (cross-platform port, deferred).
-Project type **git or non-git**: the project root is resolved via `git rev-parse --show-toplevel` when git is
+- **Windows**: works out of the box (Windows PowerShell 5.1 or PowerShell 7).
+- **macOS/Linux (beta)**: requires [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/installing-powershell) (`brew install --cask powershell` / `apt-get install powershell`), then run the coordinator with `pwsh`, e.g. `pwsh ./llm_wiki/ai_debate/run_auto.ps1 -Watch`. The scripts are cross-platform (host-shell/tree-kill/folder-open/path handling all branch per OS) but have not yet been verified on real macOS/Linux hardware — issues welcome.
+- Project type **git or non-git**: the project root is resolved via `git rev-parse --show-toplevel` when git is
 available, else the workspace parent (override with `run_auto.ps1 -RepoRoot <path>`); git-only steps are skipped without a repo.
 
 ---
