@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "ai-debate",
   "displayName": "AI Debate Review",
-  "version": "0.2.0",
-  "description": "Multiple AI agents (Claude, Codex) debate a topic across structured, adversarially-verified review rounds (design -> attack -> rebuttal -> decision) and deliver a reasoned conclusion to you. Works in git and non-git projects; topics run autonomously to a decision by default. Includes a hardened coordinator and an async-review auto-resume watcher.",
+  "version": "0.3.0",
+  "description": "Multiple AI agents (Claude, Codex) debate a topic across structured, adversarially-verified review rounds (design -> attack -> rebuttal -> decision) and deliver a reasoned conclusion to you. Works in git and non-git projects; topics run autonomously to a decision by default; falls back to claude-solo when codex is missing. Includes a hardened coordinator and an async-review auto-resume watcher.",
   "author": {
     "name": "Eivor79"
   },

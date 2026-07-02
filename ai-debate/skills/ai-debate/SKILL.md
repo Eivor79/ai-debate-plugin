@@ -39,6 +39,7 @@ Each round has a role; reviewers write a structured `## Findings` section (`id`/
 ## HARD RULE (never violate)
 
 - **Never write another agent's review round on its behalf.** When `status.json` shows `owner=<other agent>` (e.g. `codex`), STOP and report to the user — that agent runs from its own session or via the coordinator.
+  - *Single sanctioned exception — coordinator solo fallback*: when the codex CLI is unavailable, the coordinator (`run_auto.ps1`, auto-detected or `-SoloClaude`) may execute a codex-owned round via the claude CLI; the doc must carry a provenance line (`> executed_by: claude (solo fallback for codex)`). Interactive sessions still must NOT do this manually.
 - **Never call `codex:*` skills to create review documents.** Codex rounds come from a separate Codex process (the coordinator's `codex exec`, or the user's Codex session).
 - Code changes are out of scope until `decision.md` is finalized AND `allow_code_change=true` AND human approval. The process produces documents and decisions, not implementation.
 - Commit/push only when the user explicitly asks.
@@ -47,9 +48,10 @@ Each round has a role; reviewers write a structured `## Findings` section (`id`/
 
 - `/review-init [dir]` — scaffold the workflow into the current repo (folders, scripts, templates, rules, .gitignore).
 - `/review-new <slug> [priority]` — open a new topic (topic.md + status.json).
-- `/review-run [--watch ...]` — start the coordinator (`run_auto.ps1`) that invokes Claude/Codex per topic `owner`.
+- `/review-run [--watch ...]` — start the coordinator (`run_auto.ps1`) that invokes Claude/Codex per topic `owner`. Falls back to solo mode (claude executes codex rounds, provenance-marked) when the codex CLI is missing.
 - `/review-wait <topic> [--until-...]` — wait in background for a review to advance, then auto-resume to continue.
 - `/review-status [topic]` — queue / blocked / human-pending summary + recent coordinator activity.
+- `/review-update [dir] [--with-rules]` — re-sync a workspace's copied scripts/templates to the installed plugin version (topics/status untouched; rules only with `--with-rules`).
 
 ## Advancing a topic (when it is your turn)
 

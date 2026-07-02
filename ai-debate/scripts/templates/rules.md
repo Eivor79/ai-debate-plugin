@@ -15,6 +15,7 @@
 ## HARD RULE
 
 - **다른 에이전트의 리뷰 라운드를 대신 작성하지 않는다.** `status.json`의 `owner`가 다른 에이전트면 멈추고 사용자에게 보고한다.
+  - *유일한 공인 예외 — 코디네이터 solo 폴백*: codex CLI가 없으면 코디네이터(`run_auto.ps1`, 자동감지 또는 `-SoloClaude`)가 codex 라운드를 claude CLI로 대행할 수 있다. 이때 문서에 provenance 라인(`> executed_by: claude (solo fallback for codex)`)을 남긴다. 대화형 세션이 수동으로 대필하는 것은 여전히 금지.
 - ai_debate 문서 작성에 `codex:*` 스킬을 호출하지 않는다. Codex 라운드는 별도 Codex 프로세스(코디네이터의 `codex exec` 또는 사용자 Codex 세션)에서 나온다.
 - `decision.md` 확정 + `allow_code_change=true` + 사람 승인 전에는 코드 변경 금지.
 - 커밋/푸시/실제 PR 생성은 사용자가 명시적으로 요청할 때만.

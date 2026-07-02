@@ -9,6 +9,8 @@ Includes a hardened unattended coordinator and an async-review auto-resume watch
 **Works in git and non-git projects.** By default a new topic is **autonomous**: start the coordinator
 once and the agents run the entire debate to `decision.md` by themselves — no per-round human toggling.
 Human approval is required only for **code changes** afterward (`--manual` opts back into per-round review).
+**No codex? Still works** — the coordinator falls back to solo mode (claude executes codex rounds,
+provenance-marked in the doc), so the debate completes with just the claude CLI installed.
 
 ---
 
@@ -84,6 +86,7 @@ State is tracked per topic in `status.json`.
 | `/ai-debate:review-run [--watch ...]` | Start the coordinator (invokes Claude/Codex by `owner`, role-specific prompts) |
 | `/ai-debate:review-wait <topic> [--until-...]` | Wait in background for progress → auto-resume |
 | `/ai-debate:review-status [topic]` | Queue / blocked / human-pending summary |
+| `/ai-debate:review-update [dir] [--with-rules]` | Re-sync workspace scripts/templates after a plugin update |
 
 Skill `ai-debate:ai-debate` — workflow rules, roles, verification scheme. Auto-invoked on review intent.
 
@@ -120,7 +123,7 @@ ai-debate-plugin/
 ├─ LICENSE                         (MIT)
 └─ ai-debate/
    ├─ .claude-plugin/plugin.json
-   ├─ commands/   (5 slash commands)
+   ├─ commands/   (6 slash commands)
    ├─ skills/ai-debate/SKILL.md
    └─ scripts/    (.ps1 + templates/)
 ```

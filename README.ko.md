@@ -8,6 +8,8 @@
 **git / 비-git 프로젝트 양쪽에서 동작**합니다. 신규 토픽은 기본 **자율 모드**: 코디네이터를 한 번 띄우면
 에이전트끼리 `decision.md`까지 **알아서 끝까지** 진행하며 라운드별 사람 개입이 없습니다.
 사람 승인은 이후 **코드 변경**에만 필요합니다(`--manual`로 라운드별 검토로 되돌릴 수 있음).
+**codex가 없어도 동작** — 코디네이터가 solo 모드로 폴백해 claude가 codex 라운드를 대행합니다
+(문서에 provenance 표기). claude CLI만 있으면 토론이 끝까지 완주됩니다.
 
 ---
 
@@ -81,6 +83,7 @@
 | `/ai-debate:review-run [--watch ...]` | 코디네이터 실행(owner 기준 Claude/Codex 호출) |
 | `/ai-debate:review-wait <topic> [--until-...]` | 진전까지 대기 → 자동 재개 |
 | `/ai-debate:review-status [topic]` | 큐/blocked/human 요약 |
+| `/ai-debate:review-update [dir] [--with-rules]` | 플러그인 업데이트 후 워크스페이스 스크립트/템플릿 재동기화 |
 
 스킬 `ai-debate:ai-debate` — 워크플로 규칙·역할·검증 체계. "리뷰 진행"/"ai debate" 등에 자동 발동.
 
@@ -117,7 +120,7 @@ ai-debate-plugin/
 ├─ LICENSE                         (MIT)
 └─ ai-debate/
    ├─ .claude-plugin/plugin.json
-   ├─ commands/   (5 slash commands)
+   ├─ commands/   (6 slash commands)
    ├─ skills/ai-debate/SKILL.md
    └─ scripts/    (.ps1 + templates/)
 ```

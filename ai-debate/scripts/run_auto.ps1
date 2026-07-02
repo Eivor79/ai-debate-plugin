@@ -15,6 +15,7 @@
     [switch] $Watch,
     [switch] $EnableExisting,
     [switch] $OpenOnComplete,
+    [switch] $SoloClaude,
     [switch] $DryRun
 )
 
@@ -74,6 +75,19 @@ function Resolve-RepoRoot {
 }
 
 $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -QueueRoot $QueueRoot
+
+# Solo 폴백: codex CLI가 없으면 claude가 codex 라운드를 대행한다(문서에 provenance 표기).
+# 기동 시 1회 감지만 한다 — 런타임 codex 장애는 기존 nonzero/timeout 차단 경로 유지(장애 중첩 방지).
+$codexAvailable = [bool](Get-Command codex -ErrorAction SilentlyContinue)
+$SoloMode = [bool]($SoloClaude -or (-not $codexAvailable))
+if ($SoloMode) {
+    if ($SoloClaude) {
+        Write-Host "[review_bus_auto] solo mode forced (-SoloClaude): claude executes codex-owned rounds (provenance-marked)"
+    }
+    else {
+        Write-Warning "[review_bus_auto] codex CLI not found on PATH — SOLO FALLBACK: claude executes codex-owned rounds (provenance-marked). Install codex for independent adversarial rounds."
+    }
+}
 
 $automatedOwners = @("claude", "codex")
 
@@ -579,7 +593,8 @@ function New-AgentPrompt {
     param(
         [Parameter(Mandatory = $true)] $Item,
         [Parameter(Mandatory = $true)] [string] $Agent,
-        [bool] $AutoOverride = $false
+        [bool] $AutoOverride = $false,
+        [bool] $SoloFallback = $false
     )
 
     $rootPath = $RepoRoot
@@ -639,8 +654,22 @@ function New-AgentPrompt {
     }
     $roleBlock = if ($roleLines.Count -gt 0) { "Round role and review-quality rules:`n" + ($roleLines -join "`n") } else { "" }
 
+    # Solo 폴백: codex CLI 부재 시 claude가 codex 라운드를 대행. 상태머신/파일명은 불변,
+    # 문서에 provenance 를 남기고 자기-공격 완화를 금지한다(HARD RULE의 코디네이터 한정 예외).
+    $soloBlock = if ($SoloFallback) {
+        (@(
+            'SOLO FALLBACK MODE (coordinator-sanctioned exception to the "never write another agent''s round" rule):',
+            "- The codex CLI is unavailable, so you (claude) are executing this codex-owned round on the coordinator's behalf.",
+            '- Keep the planned next_doc filename and the status.json owner-transition flow exactly as designed. Do NOT rename docs.',
+            '- Add a provenance line directly under the doc title: `> executed_by: claude (solo fallback for codex)`.',
+            '- Argue the role at FULL strength. Do not soften the attack/critique because earlier rounds were also claude-authored.'
+        ) -join "`n")
+    } else { "" }
+
     @"
 You are running as the $Agent worker for the review automation loop.
+
+$soloBlock
 
 Repository root: $rootPath
 Topic directory: $topicPath
@@ -707,6 +736,24 @@ function Invoke-CodexWorker {
         [Parameter(Mandatory = $true)] $Item,
         [bool] $AutoOverride = $false
     )
+
+    # Solo 폴백: codex CLI 부재(또는 -SoloClaude) 시 claude CLI가 codex 라운드를 대행.
+    # owner/auto 게이트 검사는 여전히 owner=codex 기준(상태머신 불변), 프롬프트에 provenance 지시 주입.
+    if ($SoloMode) {
+        $prompt = New-AgentPrompt -Item $Item -Agent "codex" -AutoOverride $AutoOverride -SoloFallback $true
+        if ($DryRun) {
+            Write-Host "[dry-run] claude(solo) would handle $($Item.topic) -> $($Item.next_doc)"
+            return
+        }
+
+        $claudeArgs = @("--print", "--permission-mode", "acceptEdits", "--output-format", "text")
+        if ($ClaudeModel) { $claudeArgs += @("--model", $ClaudeModel) }
+
+        Write-RunLog -Topic $Item.topic -Owner $Item.owner -Action $Item.next_action -Result "solo_fallback" -ResultDoc $Item.next_doc
+        Invoke-AgentWithTimeout -Item $Item -Exe "claude" `
+            -Arguments $claudeArgs -Prompt $prompt -Label "claude(solo-for-codex)"
+        return
+    }
 
     $prompt = New-AgentPrompt -Item $Item -Agent "codex" -AutoOverride $AutoOverride
     if ($DryRun) {
