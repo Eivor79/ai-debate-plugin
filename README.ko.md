@@ -3,13 +3,26 @@
 **다른 언어로 보기 / Other languages: [English](./README.md) · 한국어**
 
 여러 AI(Claude · Codex)가 한 주제를 라운드로 **토론·적대검증**(설계 → 공격 → 반박 → 결정)해
-근거 있는 **결론을 당신에게 전달**하는 Claude Code 플러그인. 무인 코디네이터 + 리뷰 완료 자동재개 감시자 포함.
+근거 있는 **결론을 당신에게 전달**하는 Claude Code 플러그인.
 
-**git / 비-git 프로젝트 양쪽에서 동작**합니다. 신규 토픽은 기본 **자율 모드**: 코디네이터를 한 번 띄우면
-에이전트끼리 `decision.md`까지 **알아서 끝까지** 진행하며 라운드별 사람 개입이 없습니다.
-사람 승인은 이후 **코드 변경**에만 필요합니다(`--manual`로 라운드별 검토로 되돌릴 수 있음).
-**codex가 없어도 동작** — 코디네이터가 solo 모드로 폴백해 claude가 codex 라운드를 대행합니다
-(문서에 provenance 표기). claude CLI만 있으면 토론이 끝까지 완주됩니다.
+## ⚡ 토픽 하나 열고, 자리 비우고, 돌아와서 결론만 읽으세요
+
+워크플로 전부가 이겁니다:
+
+```text
+/ai-debate:review-new api-응답-캐싱-할까     # 1. 토픽 열기
+/ai-debate:review-run --watch                # 2. 코디네이터 한 번 기동
+        ...에이전트끼리 라운드를 주고받으며 알아서 토론...
+   001_claude_design.md → 002_codex_attack.md → 003_claude_rebuttal.md → decision.md
+```
+
+라운드 사이에 봐줄 필요가 없습니다: 코디네이터가 토픽을 에이전트 간에 자동으로 넘겨가며
+`decision.md`에 수렴할 때까지 토론을 이어갑니다. **토픽 여러 개**를 쌓아두면 우선순위대로
+전부 처리합니다. 당신은 결론만 읽으면 되고, 뭔가 물어보는 건 **코드 변경 승인** 그 한 번뿐입니다.
+
+덧붙여: **git / 비-git** 프로젝트, **Windows** + (베타) **macOS/Linux** 모두 동작하고,
+**codex가 없어도 됩니다** — claude가 solo로 토론을 대행(provenance 표기)해 라운드가 멈추지 않습니다.
+라운드마다 직접 심판하고 싶으면 `--manual`로 토픽을 만드세요.
 
 ---
 
@@ -41,15 +54,16 @@
 
 ```text
 나: "ai-debate 플러그인 개선점으로 리뷰 주제 하나 열어줘"
-  → Claude가 topic.md + 001 설계(DESIGNER) 작성
+  → topic.md 생성, 기본이 자율 모드(auto=true)
 
 나: "리뷰 진행"
-  → 코디네이터가 Codex 공격(002 ATTACKER) 실행
-  → 완료 시 세션 자동 재개 → Claude 반박(003 REBUTTER) → finding별 평결
-  → 쟁점이 사람 결정이면 owner=human 으로 멈추고 질문
+  → 코디네이터가 넘겨받아 라운드를 "알아서" 순환:
+     Claude 설계(001) → Codex 공격(002) → Claude 반박(003)
+     → finding별 평결 → decision.md
+  → 그 사이 할 일 없음 — 커피 한 잔 (토픽을 더 쌓아둬도 됨)
 
-나: (질문에 답)
-  → Claude가 decision.md 확정 → 채택분 구현
+나: (decision.md 읽기)
+  → 채택분을 구현까지? 코드 변경만 승인하면 끝 — 그게 유일한 게이트
 ```
 
 > 팁: 코드까지 바꾸려면 `decision.md` 확정 + `allow_code_change=true` + **당신의 승인**이 필요합니다(안전장치).

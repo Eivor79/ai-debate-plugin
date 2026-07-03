@@ -4,13 +4,26 @@
 
 A Claude Code plugin where multiple AI agents (Claude, Codex) **debate and adversarially verify** a topic
 across structured rounds (design → attack → rebuttal → decision) and deliver a reasoned **decision to you**.
-Includes a hardened unattended coordinator and an async-review auto-resume watcher.
 
-**Works in git and non-git projects.** By default a new topic is **autonomous**: start the coordinator
-once and the agents run the entire debate to `decision.md` by themselves — no per-round human toggling.
-Human approval is required only for **code changes** afterward (`--manual` opts back into per-round review).
-**No codex? Still works** — the coordinator falls back to solo mode (claude executes codex rounds,
-provenance-marked in the doc), so the debate completes with just the claude CLI installed.
+## ⚡ Open a topic. Walk away. Come back to a verdict.
+
+That's the whole workflow:
+
+```text
+/ai-debate:review-new should-we-cache-api-responses     # 1. open a topic
+/ai-debate:review-run --watch                           # 2. start the coordinator once
+        ...agents debate round after round, hands-free...
+   001_claude_design.md → 002_codex_attack.md → 003_claude_rebuttal.md → decision.md
+```
+
+No babysitting between rounds: the coordinator hands the topic back and forth between the agents
+automatically until the debate converges on `decision.md`. Queue **several topics** and it works
+through all of them by priority. You read the verdict — the only time you're asked anything is
+when a **code change** needs your approval.
+
+Also: works in **git and non-git** projects, on **Windows** and (beta) **macOS/Linux**, and
+**no codex? still works** — claude debates solo (provenance-marked) so the rounds never stall.
+Prefer to referee each round yourself? Create the topic with `--manual`.
 
 ---
 
@@ -43,15 +56,16 @@ auto-activates and picks the right action.
 
 ```text
 You: "open a review topic on the ai-debate plugin improvements"
-  → Claude writes topic.md + 001 design (DESIGNER)
+  → topic.md created, autonomous by default (auto=true)
 
 You: "run the review"
-  → coordinator runs Codex attack (002 ATTACKER)
-  → on completion the session auto-resumes → Claude rebuttal (003 REBUTTER) → per-finding verdicts
-  → if a call is the human's, it stops at owner=human and asks you
+  → the coordinator takes over and cycles the rounds BY ITSELF:
+     Claude design (001) → Codex attack (002) → Claude rebuttal (003)
+     → per-finding verdicts → decision.md
+  → you do nothing in between — go grab a coffee (or queue more topics)
 
-You: (answer)
-  → Claude finalizes decision.md → implements the adopted items
+You: (read decision.md)
+  → want the adopted items implemented? approve the code change — that's your only gate
 ```
 
 > Tip: to change code you still need a finalized `decision.md` + `allow_code_change=true` + **your approval** (safety gate).
