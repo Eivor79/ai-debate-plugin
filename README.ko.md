@@ -10,15 +10,14 @@
 워크플로 전부가 이겁니다:
 
 ```text
-/ai-debate:review-new api-응답-캐싱-할까     # 1. 토픽 열기
-/ai-debate:review-run --watch                # 2. 코디네이터 한 번 기동
-        ...에이전트끼리 라운드를 주고받으며 알아서 토론...
+/ai-debate:review-new api-응답-캐싱-할까     # ← 필요한 명령은 이거 하나
+        ...스캐폴드→코디네이터 기동→에이전트끼리 알아서 토론...
    001_claude_design.md → 002_codex_attack.md → 003_claude_rebuttal.md → decision.md
 ```
 
 라운드 사이에 봐줄 필요가 없습니다: 코디네이터가 토픽을 에이전트 간에 자동으로 넘겨가며
-`decision.md`에 수렴할 때까지 토론을 이어갑니다. **토픽 여러 개**를 쌓아두면 우선순위대로
-전부 처리합니다. 당신은 결론만 읽으면 되고, 뭔가 물어보는 건 **코드 변경 승인** 그 한 번뿐입니다.
+`decision.md`에 수렴할 때까지 토론을 이어갑니다(**라운드 캡**이 종결을 보장). **토픽 여러 개**를
+쌓아두면 우선순위대로 전부 처리합니다. 당신은 결론만 읽으면 되고, 뭔가 물어보는 건 **코드 변경 승인** 그 한 번뿐입니다.
 
 덧붙여: **git / 비-git** 프로젝트, **Windows** + (베타) **macOS/Linux** 모두 동작하고,
 **codex가 없어도 됩니다** — claude가 solo로 토론을 대행(provenance 표기)해 라운드가 멈추지 않습니다.
@@ -44,11 +43,10 @@
 
 | 이렇게 말하면 | 일어나는 일 |
 |---|---|
-| "이 레포에 리뷰 셋업해" | 워크스페이스 스캐폴딩 (`review-init`) |
-| "〈주제〉로 새 리뷰 주제 열어" | 토픽 생성 + 설계 라운드 (`review-new`) |
-| "리뷰 진행" / "리뷰 돌려" / "pr 진행" | 코디네이터 실행 — Claude·Codex 라운드 (`review-run`) |
-| "리뷰 끝나면 이어서 해" | 완료까지 대기 후 자동 재개 (`review-wait`) |
+| "〈주제〉 토론해봐" / "〈주제〉로 리뷰 열어" | 전체 파이프라인: 스캐폴드→토픽→코디네이터 기동→에이전트 토론→평결 보고 (`review-new`) |
 | "리뷰 현황 / 뭐 막혔어?" | 큐·blocked 요약 (`review-status`) |
+| "리뷰 환경 괜찮아?" | 사전 진단, `--fix`로 낡은 스크립트 복구 (`review-doctor`) |
+| "코디네이터 재시작해" | 코디네이터 수동 제어 (`review-run`) |
 
 **실제 사용 흐름 예**
 
@@ -105,23 +103,18 @@ JUDGE — decision.md 는 생존 findings만 채택:
 ### 빠른 시작
 
 ```text
-/ai-debate:review-init                 # 워크스페이스 셋업
-/ai-debate:review-new my-first-topic   # 새 토픽 생성
-/ai-debate:review-run --watch          # 코디네이터 무인 실행
-/ai-debate:review-wait <topic> --until-owner claude   # 리뷰 끝나면 자동 재개
-/ai-debate:review-status               # 현황
+/ai-debate:review-new my-first-topic   # 이거면 끝 — 스캐폴드, 토론, 평결 보고까지
+/ai-debate:review-status               # (선택) 큐 지켜보기
 ```
 
-### 명령 / 스킬
+### 명령 / 스킬 — 단 4개
 
 | 명령 | 설명 |
 |---|---|
-| `/ai-debate:review-init [dir]` | 워크스페이스·스크립트·템플릿·규칙 셋업 (git/비-git; `.gitignore`는 git일 때만) |
-| `/ai-debate:review-new <slug> [priority] [--manual]` | 새 토픽 생성 (기본 자율; `--manual`은 라운드별 사람검토) |
-| `/ai-debate:review-run [--watch ...]` | 코디네이터 실행(owner 기준 Claude/Codex 호출) |
-| `/ai-debate:review-wait <topic> [--until-...]` | 진전까지 대기 → 자동 재개 |
+| `/ai-debate:review-new <주제> [priority] [--manual] [--no-run]` | **진입점**: 스캐폴드→토픽→코디네이터 기동→`decision.md`까지 토론→평결 보고 |
+| `/ai-debate:review-run [--watch ...]` | 코디네이터 수동 제어(재시작, 모델 고정) |
 | `/ai-debate:review-status [topic]` | 큐/blocked/human 요약 |
-| `/ai-debate:review-update [dir] [--with-rules]` | 플러그인 업데이트 후 워크스페이스 스크립트/템플릿 재동기화 |
+| `/ai-debate:review-doctor [dir] [--fix]` | 사전 진단: pwsh/CLI/워크스페이스 최신성; `--fix`로 낡은 스크립트 재동기화 |
 
 스킬 `ai-debate:ai-debate` — 워크플로 규칙·역할·검증 체계. "리뷰 진행"/"ai debate" 등에 자동 발동.
 
@@ -139,7 +132,8 @@ JUDGE — decision.md 는 생존 findings만 채택:
 
 ### 코디네이터 안전장치
 
-per-topic 타임아웃, 진전-정체 감지(→`owner=human`), 턴 단위 오류 격리, 단일 인스턴스 뮤텍스, JSONL 로그,
+per-topic 타임아웃, 진전-정체 감지(→`owner=human`), **라운드 캡**(기본 7문서, 토픽별 `max_rounds` —
+핑퐁 토론을 강제 JUDGE 평결로 종결 보장), 턴 단위 오류 격리, 단일 인스턴스 뮤텍스, JSONL 로그(5MB 로테이션),
 **scope guard**(worker가 워크스페이스 밖 변경 시 warn+log), `-ClaudeModel`/`-CodexModel` 모델 고정.
 
 ### 플랫폼
@@ -159,7 +153,7 @@ ai-debate-plugin/
 ├─ LICENSE                         (MIT)
 └─ ai-debate/
    ├─ .claude-plugin/plugin.json
-   ├─ commands/   (6 slash commands)
+   ├─ commands/   (4 slash commands)
    ├─ skills/ai-debate/SKILL.md
    └─ scripts/    (.ps1 + templates/)
 ```

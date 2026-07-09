@@ -46,6 +46,8 @@ ai_debate/
 
 `_templates/status.schema.md` 참조. 코디네이터(`run_auto.ps1`)는 `owner`가 자동 에이전트(claude/codex)이고 status가 actionable(`ready_for_decision`/`ready_for_implementation`/`ready_for_<owner>*`)이며 `auto=true`(또는 `-EnableExisting`)인 토픽만 처리합니다. 신규 토픽은 기본 `auto=true`라 별도 토글 없이 바로 자율 진행됩니다. `owner=human`은 사람 개입 대기로, **진짜 차단**(에러/무진전/인코딩 실패/코드변경 승인)에서만 설정되며 — 자율-완주의 정상 종착점입니다.
 
+**라운드 캡**: 번호 문서(`NNN_*.md`)가 캡(코디네이터 `-MaxNumberedDocs` 기본 7, 토픽별 `max_rounds` 우선)에 도달하면 다음 턴은 강제 JUDGE로 전환되어 기존 라운드만으로 `decision.md`를 작성합니다 — 핑퐁 토론도 반드시 종결됩니다.
+
 비-git 프로젝트에서 `RepoRoot`(에이전트 프롬프트의 "Repository root", codex `--cd`)는 git toplevel 대신 워크스페이스 기준으로 자동 해석됩니다. 레이아웃이 특수하면 `run_auto.ps1 -RepoRoot <경로>`로 명시할 수 있습니다.
 
 ## 요청 문구

@@ -10,16 +10,15 @@ across structured rounds (design → attack → rebuttal → decision) and deliv
 That's the whole workflow:
 
 ```text
-/ai-debate:review-new should-we-cache-api-responses     # 1. open a topic
-/ai-debate:review-run --watch                           # 2. start the coordinator once
-        ...agents debate round after round, hands-free...
+/ai-debate:review-new should-we-cache-api-responses     # ← the ONLY command you need
+        ...scaffolds, starts the coordinator, agents debate hands-free...
    001_claude_design.md → 002_codex_attack.md → 003_claude_rebuttal.md → decision.md
 ```
 
 No babysitting between rounds: the coordinator hands the topic back and forth between the agents
-automatically until the debate converges on `decision.md`. Queue **several topics** and it works
-through all of them by priority. You read the verdict — the only time you're asked anything is
-when a **code change** needs your approval.
+automatically until the debate converges on `decision.md` (a **round cap** guarantees it terminates).
+Queue **several topics** and it works through all of them by priority. You read the verdict — the only
+time you're asked anything is when a **code change** needs your approval.
 
 Also: works in **git and non-git** projects, on **Windows** and (beta) **macOS/Linux**, and
 **no codex? still works** — claude debates solo (provenance-marked) so the rounds never stall.
@@ -46,11 +45,10 @@ auto-activates and picks the right action.
 
 | Say this | What happens |
 |---|---|
-| "set up reviews in this repo" | scaffold the workspace (`review-init`) |
-| "open a review topic on `<subject>`" | create topic + design round (`review-new`) |
-| "run the review" / "start the AI debate" | run the coordinator — Claude·Codex rounds (`review-run`) |
-| "resume when the review is done" | wait then auto-resume (`review-wait`) |
+| "debate `<subject>`" / "open a review topic on `<subject>`" | the whole pipeline: scaffold if needed → topic → coordinator starts → agents debate → verdict reported (`review-new`) |
 | "what's the review status / what's blocked?" | queue / blocked summary (`review-status`) |
+| "is the review setup healthy?" | preflight check, `--fix` repairs stale scripts (`review-doctor`) |
+| "restart the coordinator" | manual coordinator control (`review-run`) |
 
 **Example flow**
 
@@ -108,23 +106,18 @@ State is tracked per topic in `status.json`.
 ### Quick start
 
 ```text
-/ai-debate:review-init                 # scaffold the workspace
-/ai-debate:review-new my-first-topic   # create a topic
-/ai-debate:review-run --watch          # run the coordinator (unattended)
-/ai-debate:review-wait <topic> --until-owner claude   # block-then-resume when it's your turn
-/ai-debate:review-status               # queue / blocked / human-pending
+/ai-debate:review-new my-first-topic   # that's it — scaffolds, debates, reports the verdict
+/ai-debate:review-status               # (optional) watch the queue
 ```
 
-### Commands / Skill
+### Commands / Skill — just 4
 
 | Command | Purpose |
 |---|---|
-| `/ai-debate:review-init [dir]` | Scaffold workspace, scripts, templates, rules into the project (git or non-git; `.gitignore` only when git is present) |
-| `/ai-debate:review-new <slug> [priority] [--manual]` | Open a new topic (autonomous by default; `--manual` for per-round human review) |
-| `/ai-debate:review-run [--watch ...]` | Start the coordinator (invokes Claude/Codex by `owner`, role-specific prompts) |
-| `/ai-debate:review-wait <topic> [--until-...]` | Wait in background for progress → auto-resume |
+| `/ai-debate:review-new <topic> [priority] [--manual] [--no-run]` | **The entry point**: scaffold if needed → create topic → start coordinator → agents debate to `decision.md` → verdict reported |
+| `/ai-debate:review-run [--watch ...]` | Manual coordinator control (restart, pin models) |
 | `/ai-debate:review-status [topic]` | Queue / blocked / human-pending summary |
-| `/ai-debate:review-update [dir] [--with-rules]` | Re-sync workspace scripts/templates after a plugin update |
+| `/ai-debate:review-doctor [dir] [--fix]` | Preflight: pwsh/CLIs/workspace freshness; `--fix` re-syncs stale scripts |
 
 Skill `ai-debate:ai-debate` — workflow rules, roles, verification scheme. Auto-invoked on review intent.
 
@@ -142,8 +135,10 @@ Each round has a **role** and writes structured `## Findings` (`id`/`severity`/`
 
 ### Coordinator hardening
 
-Per-topic timeout, progress-stall detection (→ `owner=human`), turn-level error isolation, single-instance mutex,
-JSONL run log, **scope guard** (warns+logs worker changes outside the workspace), `-ClaudeModel`/`-CodexModel` pinning.
+Per-topic timeout, progress-stall detection (→ `owner=human`), **round cap** (default 7 numbered docs, per-topic
+`max_rounds` — forces a JUDGE verdict so ping-pong debates always terminate), turn-level error isolation,
+single-instance mutex, JSONL run log with 5MB rotation, **scope guard** (warns+logs worker changes outside the
+workspace), `-ClaudeModel`/`-CodexModel` pinning.
 
 ### Platform
 
@@ -162,7 +157,7 @@ ai-debate-plugin/
 ├─ LICENSE                         (MIT)
 └─ ai-debate/
    ├─ .claude-plugin/plugin.json
-   ├─ commands/   (6 slash commands)
+   ├─ commands/   (4 slash commands)
    ├─ skills/ai-debate/SKILL.md
    └─ scripts/    (.ps1 + templates/)
 ```

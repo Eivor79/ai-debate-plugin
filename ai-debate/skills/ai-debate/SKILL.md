@@ -11,27 +11,25 @@ claims, and converge on a decision delivered to the user. It is NOT a finished-d
 knowledge graduates to the wiki, in-flight argument stays in the workspace. Default workspace folder:
 `llm_wiki/ai_debate/` (configurable; the coordinator is folder-name-agnostic).
 
-## Default happy path — open a topic, let the agents debate, report the verdict
+## Default happy path — one command, hands-free to the verdict
 
 When the user names something to debate/review ("X를 토론해봐", "debate whether we should X",
-"리뷰 붙여줘"), run this flow — do NOT hand-write rounds yourself:
+"리뷰 붙여줘"), the ENTIRE flow is one command — `/review-new <topic>` — which:
 
-1. **Workspace** — if no workspace exists (no `run_auto.ps1` found), scaffold one first (`/review-init`).
-2. **Create the topic in one shot** (`/review-new`): derive a kebab-case slug from the user's phrase and
-   write `topic.md` yourself from conversation context (background, the question, competing options).
-   Do not interrogate the user with setup questions — one clarifying question max, and only if the topic
-   is genuinely ambiguous. Defaults: priority `p2`, `auto=true`, owner = designer agent (`claude`).
-3. **Start the debate** (`/review-run --watch`, `run_in_background`): the coordinator now cycles the
-   rounds **by itself** — design → attack → rebuttal → decision — handing the topic between agents with
-   no human toggling. Multiple topics? Just create them all; the queue drains by priority.
-4. **Don't poll, don't participate** — use `/review-wait <topic> --until-status decided` (background) so
-   the session sleeps until the debate lands, then **report the `decision.md` verdict** to the user:
-   adopted findings, the ruling, residual risks, next step.
-5. The only human gate is **code changes** (`allow_code_change=true` after `decision.md`). Everything
-   before that is hands-free by design.
+1. scaffolds the workspace if missing (no separate init step),
+2. creates the topic in one shot — slug derived from the user's phrase, `topic.md` written from
+   conversation context (do not interrogate the user; one clarifying question max), `auto=true`,
+3. starts the coordinator in the background (`run_auto.ps1 -Watch`; the single-instance mutex makes a
+   duplicate start harmless), so the agents cycle design → attack → rebuttal → decision **by themselves**,
+4. waits in the background (`wait_for_review.ps1 <topic> -UntilStatusLike decided*`, `run_in_background`)
+   and, on completion, **reports the `decision.md` verdict**: adopted findings, ruling, residual risks, next step.
 
-For classic per-round human refereeing, create the topic with `--manual` (`auto=false`) — only when the
-user asks for it.
+Do NOT hand-write rounds yourself, do NOT poll. Multiple topics? Run `/review-new` for each; the queue
+drains by priority. A round cap (default 7 numbered docs, per-topic `max_rounds`) forces a JUDGE verdict
+if the debate ping-pongs, so autonomous runs always terminate.
+
+The only human gate is **code changes** (`allow_code_change=true` after `decision.md`). For classic
+per-round human refereeing, use `--manual` — only when the user asks for it.
 
 **Works in git AND non-git projects.** Git-only steps (`.gitignore`) are skipped when no git repo is
 present, and the coordinator resolves the project root via `git rev-parse --show-toplevel` when git is
@@ -60,14 +58,14 @@ Each round has a role; reviewers write a structured `## Findings` section (`id`/
 - Code changes are out of scope until `decision.md` is finalized AND `allow_code_change=true` AND human approval. The process produces documents and decisions, not implementation.
 - Commit/push only when the user explicitly asks.
 
-## Commands
+## Commands (4)
 
-- `/review-init [dir]` — scaffold the workflow into the current repo (folders, scripts, templates, rules, .gitignore).
-- `/review-new <slug> [priority] [--manual]` — open a new topic in one shot (topic.md written from context + status.json, autonomous by default).
-- `/review-run [--watch ...]` — start the coordinator (`run_auto.ps1`) that invokes Claude/Codex per topic `owner`. Falls back to solo mode (claude executes codex rounds, provenance-marked) when the codex CLI is missing.
-- `/review-wait <topic> [--until-...]` — wait in background for a review to advance, then auto-resume to continue.
+- `/review-new <topic> [priority] [--manual] [--no-run]` — **the entry point**: scaffold if needed → create topic → start coordinator → wait → report verdict. One shot.
+- `/review-run [--watch ...]` — manual coordinator control (restart, pin models, flags). Solo fallback when codex is missing.
 - `/review-status [topic]` — queue / blocked / human-pending summary + recent coordinator activity.
-- `/review-update [dir] [--with-rules]` — re-sync a workspace's copied scripts/templates to the installed plugin version (topics/status untouched; rules only with `--with-rules`).
+- `/review-doctor [dir] [--fix]` — preflight (pwsh/CLIs/workspace freshness/queue health); `--fix` re-syncs stale workspace scripts from the plugin.
+
+(`wait_for_review.ps1` and `update_status.ps1` are internal plumbing invoked by the flows above — not user commands.)
 
 ## Advancing a topic manually (exception, not the default)
 
@@ -81,7 +79,7 @@ asks you to, or a topic is `--manual` and it is your turn:
 
 ## Async review → auto-resume decision tree
 
-When waiting on another agent's round, use `/review-wait` (it launches `wait_for_review.ps1` with `run_in_background`; the harness re-invokes this session on completion). On resume, read the watcher's JSON result and branch:
+When waiting on a debate, launch `wait_for_review.ps1` (workspace root) with `run_in_background` — the harness re-invokes this session on completion. On resume, read the watcher's JSON result and branch:
 
 - `owner` = your agent + actionable status → read `latest_doc`, write the next round (or implement if a decision allows).
 - `status = decided` + `allow_code_change = true` → implement within the decision scope, verify, update status.
@@ -89,4 +87,4 @@ When waiting on another agent's round, use `/review-wait` (it launches `wait_for
 
 ## Coordinator notes
 
-`run_auto.ps1 -Watch` loops unattended: it reads each `status.json`, claims a per-topic lock, invokes the `owner` agent's CLI with a role-specific prompt, then verifies progress. It is hardened — per-topic timeout, progress-stall detection (escalates to `owner=human`), turn-level error catch (loop survives a failed agent), single-instance mutex, and a JSONL run log. Pin `-ClaudeModel`/`-CodexModel` for review-quality parity with interactive sessions.
+`run_auto.ps1 -Watch` loops unattended: it reads each `status.json`, claims a per-topic lock, invokes the `owner` agent's CLI with a role-specific prompt, then verifies progress. It is hardened — per-topic timeout, progress-stall detection (escalates to `owner=human`), **round cap** (`-MaxNumberedDocs`, default 7; per-topic `max_rounds` override — forces a JUDGE verdict so ping-pong debates always terminate), turn-level error catch (loop survives a failed agent), single-instance mutex, and a JSONL run log (5MB rotation). Pin `-ClaudeModel`/`-CodexModel` for review-quality parity with interactive sessions.

@@ -8,6 +8,7 @@
     [int] $LockTimeoutMinutes = 20,
     [int] $AgentTimeoutMinutes = 10,
     [int] $ProgressMaxAttempts = 2,
+    [int] $MaxNumberedDocs = 7,
     [int] $WatchMaxActions = 0,
     [string] $ClaudeModel = "",
     [string] $CodexModel = "",
@@ -214,6 +215,10 @@ function Get-ReviewBusQueue {
 
             $isActionable = $isEligible -and ($auto -or $EnableExisting)
 
+            # 토픽별 라운드 캡 오버라이드(status.json max_rounds > 0 이면 -MaxNumberedDocs 대신 사용)
+            $maxRounds = 0
+            [void][int]::TryParse([string](Get-FieldValue -Object $status -Name "max_rounds"), [ref]$maxRounds)
+
             [pscustomobject]@{
                 topic = $topicDir.Name
                 path = $topicDir.FullName
@@ -226,6 +231,7 @@ function Get-ReviewBusQueue {
                 next_doc = $nextDoc
                 priority = $priority
                 priority_rank = Get-PriorityRank -Priority $priority
+                max_rounds = $maxRounds
                 reason = if ($warnings.Count -gt 0) { ($warnings -join "; ") } else { $blockedReason }
             }
         } |
@@ -305,6 +311,13 @@ function Write-RunLog {
     if ($DryRun) { return }
 
     $logPath = Join-Path $QueueRoot "run_auto.log.jsonl"
+    # 장기 -Watch 운영 시 무한 증가 방지: 5MB 초과 시 .1 로 롤링(기존 .1 덮어씀)
+    try {
+        if ((Test-Path -LiteralPath $logPath) -and ((Get-Item -LiteralPath $logPath).Length -gt 5MB)) {
+            Move-Item -LiteralPath $logPath -Destination "$logPath.1" -Force
+        }
+    }
+    catch { }
     $entry = [ordered]@{
         ts = (Get-Date).ToString("o")
         topic = $Topic
@@ -614,7 +627,8 @@ function New-AgentPrompt {
         [Parameter(Mandatory = $true)] $Item,
         [Parameter(Mandatory = $true)] [string] $Agent,
         [bool] $AutoOverride = $false,
-        [bool] $SoloFallback = $false
+        [bool] $SoloFallback = $false,
+        [bool] $ForceJudge = $false
     )
 
     $rootPath = $RepoRoot
@@ -640,6 +654,20 @@ function New-AgentPrompt {
         elseif ($nd -match 'rebuttal' -or $na -match 'rebut') { 'rebutter' }
         elseif ($nd -match 'decision' -or $na -match 'decision' -or $na -match 'decide') { 'judge' }
         else { 'generic' }
+
+    # 라운드 캡 도달: 새 라운드 문서 대신 decision.md 를 쓰도록 역할을 JUDGE 로 강제.
+    # 무진전 감지가 못 잡는 "정상 진전형 무한 핑퐁"(attack↔rebuttal 반복)의 종결 장치.
+    $capBlock = ""
+    if ($ForceJudge -and $role -ne 'judge') {
+        $role = 'judge'
+        $capBlock = (@(
+            'ROUND CAP REACHED: this topic hit its maximum number of debate rounds.',
+            "- Do NOT write the planned next_doc '$($Item.next_doc)' or any new numbered round.",
+            '- Write decision.md NOW using the JUDGE rules below, weighing only the EXISTING rounds.',
+            '- Advance status.json to the decided state (status=decided, next_action=none, current_doc=decision.md, next_doc="").',
+            '- In decision.md, note that the round cap forced the verdict (so readers know the debate was truncated).'
+        ) -join "`n")
+    }
 
     $findingsSchema = (@(
             'Structured findings -- include a "## Findings" section; for EACH issue, one block:',
@@ -695,6 +723,8 @@ You are running as the $Agent worker for the review automation loop.
 
 $soloBlock
 
+$capBlock
+
 Repository root: $rootPath
 Topic directory: $topicPath
 
@@ -739,12 +769,14 @@ When finished, stop. Do not wait for user input.
 function Invoke-ClaudeWorker {
     param(
         [Parameter(Mandatory = $true)] $Item,
-        [bool] $AutoOverride = $false
+        [bool] $AutoOverride = $false,
+        [bool] $ForceJudge = $false
     )
 
-    $prompt = New-AgentPrompt -Item $Item -Agent "claude" -AutoOverride $AutoOverride
+    $prompt = New-AgentPrompt -Item $Item -Agent "claude" -AutoOverride $AutoOverride -ForceJudge $ForceJudge
     if ($DryRun) {
-        Write-Host "[dry-run] claude would handle $($Item.topic) -> $($Item.next_doc)"
+        $capNote = if ($ForceJudge) { " (ROUND CAP -> judge)" } else { "" }
+        Write-Host "[dry-run] claude would handle $($Item.topic) -> $($Item.next_doc)$capNote"
         return
     }
 
@@ -758,15 +790,17 @@ function Invoke-ClaudeWorker {
 function Invoke-CodexWorker {
     param(
         [Parameter(Mandatory = $true)] $Item,
-        [bool] $AutoOverride = $false
+        [bool] $AutoOverride = $false,
+        [bool] $ForceJudge = $false
     )
 
     # Solo 폴백: codex CLI 부재(또는 -SoloClaude) 시 claude CLI가 codex 라운드를 대행.
     # owner/auto 게이트 검사는 여전히 owner=codex 기준(상태머신 불변), 프롬프트에 provenance 지시 주입.
     if ($SoloMode) {
-        $prompt = New-AgentPrompt -Item $Item -Agent "codex" -AutoOverride $AutoOverride -SoloFallback $true
+        $prompt = New-AgentPrompt -Item $Item -Agent "codex" -AutoOverride $AutoOverride -SoloFallback $true -ForceJudge $ForceJudge
         if ($DryRun) {
-            Write-Host "[dry-run] claude(solo) would handle $($Item.topic) -> $($Item.next_doc)"
+            $capNote = if ($ForceJudge) { " (ROUND CAP -> judge)" } else { "" }
+            Write-Host "[dry-run] claude(solo) would handle $($Item.topic) -> $($Item.next_doc)$capNote"
             return
         }
 
@@ -779,9 +813,10 @@ function Invoke-CodexWorker {
         return
     }
 
-    $prompt = New-AgentPrompt -Item $Item -Agent "codex" -AutoOverride $AutoOverride
+    $prompt = New-AgentPrompt -Item $Item -Agent "codex" -AutoOverride $AutoOverride -ForceJudge $ForceJudge
     if ($DryRun) {
-        Write-Host "[dry-run] codex would handle $($Item.topic) -> $($Item.next_doc)"
+        $capNote = if ($ForceJudge) { " (ROUND CAP -> judge)" } else { "" }
+        Write-Host "[dry-run] codex would handle $($Item.topic) -> $($Item.next_doc)$capNote"
         return
     }
 
@@ -856,6 +891,20 @@ try {
         $turnStart = Get-Date
         $preChanges = if (-not $DryRun) { Get-GitChangeSet } else { $null }   # A1 scope guard 기준선
 
+        # 라운드 캡: NNN_*.md 수가 캡 이상이면 이번 턴을 강제 JUDGE(decision.md)로 전환.
+        # 토픽별 status.json max_rounds(>0) 가 -MaxNumberedDocs 보다 우선.
+        $forceJudge = $false
+        $effectiveCap = if ($item.max_rounds -gt 0) { $item.max_rounds } else { $MaxNumberedDocs }
+        if ($effectiveCap -gt 0) {
+            $numberedCount = @(Get-ChildItem -LiteralPath $item.path -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^\d{3}_.*\.md$' }).Count
+            if ($numberedCount -ge $effectiveCap) {
+                $forceJudge = $true
+                Write-Warning "[review_bus_auto] ROUND CAP: topic=$($item.topic) numbered docs $numberedCount >= cap $effectiveCap — forcing JUDGE (decision.md)"
+                Write-RunLog -Topic $item.topic -Owner $item.owner -Action $item.next_action -Result "round_cap_judge" -ResultDoc "$numberedCount/$effectiveCap"
+            }
+        }
+
         # 턴 단위 throw(에이전트 timeout/nonzero, Lock 실패, 예기치 못한 오류)를 잡아
         # 무인 watcher를 죽이지 않고 다음 토픽으로 계속한다. block 대상은 이미 처리됨.
         try {
@@ -864,8 +913,8 @@ try {
             try {
                 $preSnapshot = if (-not $DryRun) { Get-TopicStatusSignature -Item $item } else { $null }
                 switch ($item.owner) {
-                    "claude" { Invoke-ClaudeWorker -Item $item -AutoOverride $autoOverride }
-                    "codex" { Invoke-CodexWorker -Item $item -AutoOverride $autoOverride }
+                    "claude" { Invoke-ClaudeWorker -Item $item -AutoOverride $autoOverride -ForceJudge $forceJudge }
+                    "codex" { Invoke-CodexWorker -Item $item -AutoOverride $autoOverride -ForceJudge $forceJudge }
                     default { throw "unsupported owner: $($item.owner)" }
                 }
                 if (-not $DryRun) {

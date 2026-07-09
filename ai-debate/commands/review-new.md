@@ -1,23 +1,20 @@
 ---
-description: Create a new ai_debate topic folder (topic.md + status.json) from templates
-argument-hint: "<slug> [priority p0|p1|p2|p3]"
+description: Open a debate topic and let the agents run it to a decision — scaffolds, creates, starts the coordinator, waits, and reports the verdict in one shot
+argument-hint: "<slug-or-phrase> [priority p0|p1|p2|p3] [--manual] [--no-run]"
 ---
 
-Create a new ai_debate topic.
+One-shot entry point: after this command the user does **nothing** until the verdict is ready.
 
-Arguments: `$ARGUMENTS` — first token is the topic `<slug>` (kebab-case), optional second token is priority (default `p2`). Optional flag `--manual` (or `--no-auto`) opts out of autonomous mode.
+Arguments: `$ARGUMENTS` — first token(s) form the topic (kebab-case slug, or a natural-language phrase you convert to one). Optional: priority (default `p2`), `--manual` (per-round human review, no auto-run), `--no-run` (create only, do not start the coordinator).
 
 Steps:
 
-1. Resolve the ai_debate root (the directory containing `run_auto.ps1`; default `llm_wiki/ai_debate`).
-2. Compute today's date as `YYYY-MM-DD` and create folder `<date>_<slug>/`.
-3. Create `topic.md` from `_templates/topic.template.md` (fill in title, date, priority, a Background section to be completed).
-4. Create `status.json` from `_templates/status.template.json`. **Default = autonomous**: the agents run the full debate (design → attack → rebuttal → decision) on their own once the coordinator is started. Set:
-   - `owner`: the designer agent (default `claude`), `status`: `ready_for_claude` (actionable so the coordinator picks it up), `next_action`: `design`,
-   - `current_doc`: `topic.md`, `next_doc`: `001_claude_design.md`,
-   - `auto`: **true** (so `/review-run` drives it to `decision.md` without per-round human toggling), `allow_code_change`: false, `priority`: the chosen priority, `updated_at`: today.
-   - If `--manual` / `--no-auto` was passed, instead set `auto`: false and `owner`: `human` (classic per-round human-gated review).
-5. Add a row to `index.md`.
-6. Report the created paths and the mode (autonomous vs manual). For autonomous, remind: run `/review-run --watch` and the agents will debate to `decision.md` by themselves; you are only asked to approve **code changes** (`allow_code_change=true`) afterward. For manual, remind to write `001_*_design.md` then hand off.
+1. **Scaffold if missing**: resolve the workspace (directory containing `run_auto.ps1`, default `llm_wiki/ai_debate`). If none exists, scaffold it now: create the workspace + `_templates/`, copy scripts (`run_auto.ps1`, `wait_for_review.ps1`, `update_status.ps1`, `scan_queue.ps1`) and templates from `${CLAUDE_PLUGIN_ROOT}/scripts/`, copy `templates/rules.md` → workspace `README.md`, create `index.md`, and (git repos only) add `*/run_auto.log.jsonl` + `*/status.json.tmp` to `.gitignore`.
+2. **Create the topic in one shot**: folder `<YYYY-MM-DD>_<slug>/`. Write `topic.md` from `_templates/topic.template.md`, filling the background/problem/competing-options **yourself from conversation context** — do not interrogate the user (one clarifying question max, only if genuinely ambiguous).
+3. **status.json** from `_templates/status.template.json`: `owner=claude`, `status=ready_for_claude`, `next_action=design`, `next_doc=001_claude_design.md`, `auto=true`, `allow_code_change=false`, `priority`, `updated_at=today`. With `--manual`: `auto=false`, `owner=human`.
+4. Add a row to `index.md`.
+5. **Start the debate** (skip if `--manual` or `--no-run`): launch the coordinator in the background — `run_auto.ps1 -Watch` (`pwsh` on macOS/Linux, `powershell` on Windows), using `run_in_background`. The single-instance mutex makes this safe to attempt even if one is already running (the duplicate exits immediately).
+6. **Wait hands-free** (skip if `--manual`/`--no-run`): launch `wait_for_review.ps1 <topic> -UntilStatusLike decided*` with `run_in_background`. When it completes, read `decision.md` and **report the verdict**: adopted findings, the ruling, residual risks, next step. If the watcher reports `owner=human`/`blocked_reason` instead, report what needs the user's attention.
+7. Remind: code changes still require `decision.md` + `allow_code_change=true` + the user's approval.
 
-Follow the rules in the ai_debate `README.md`. Do not call any `codex:*` skill to write another agent's round.
+Follow the workspace `README.md` rules. Never call `codex:*` skills to write another agent's round.
