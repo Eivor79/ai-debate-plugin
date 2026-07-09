@@ -132,7 +132,7 @@ JUDGE — decision.md 는 생존 findings만 채택:
 
 ### 코디네이터 안전장치
 
-per-topic 타임아웃, 진전-정체 감지(→`owner=human`), **라운드 캡**(기본 7문서, 토픽별 `max_rounds` —
+per-topic 타임아웃, 진전-정체 감지(→`owner=human`), **라운드 캡**(기본 5문서, 토픽별 `max_rounds` —
 핑퐁 토론을 강제 JUDGE 평결로 종결 보장), 턴 단위 오류 격리, 단일 인스턴스 뮤텍스, JSONL 로그(5MB 로테이션),
 **scope guard**(worker가 워크스페이스 밖 변경 시 warn+log), `-ClaudeModel`/`-CodexModel` 모델 고정.
 

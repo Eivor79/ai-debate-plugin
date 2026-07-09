@@ -8,7 +8,7 @@
     [int] $LockTimeoutMinutes = 20,
     [int] $AgentTimeoutMinutes = 10,
     [int] $ProgressMaxAttempts = 2,
-    [int] $MaxNumberedDocs = 7,
+    [int] $MaxNumberedDocs = 5,
     [int] $WatchMaxActions = 0,
     [string] $ClaudeModel = "",
     [string] $CodexModel = "",

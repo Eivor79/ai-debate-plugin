@@ -25,7 +25,7 @@ When the user names something to debate/review ("X를 토론해봐", "debate whe
    and, on completion, **reports the `decision.md` verdict**: adopted findings, ruling, residual risks, next step.
 
 Do NOT hand-write rounds yourself, do NOT poll. Multiple topics? Run `/review-new` for each; the queue
-drains by priority. A round cap (default 7 numbered docs, per-topic `max_rounds`) forces a JUDGE verdict
+drains by priority. A round cap (default **5** numbered docs, per-topic `max_rounds`) forces a JUDGE verdict
 if the debate ping-pongs, so autonomous runs always terminate.
 
 ## Round count control — "이 주제 5라운드로" applies immediately
@@ -41,7 +41,7 @@ means 5 numbered docs, then a forced JUDGE writes `decision.md`.
   This takes effect on the coordinator's **very next poll** — no restart needed (the cap is re-read from
   `status.json` every turn). Confirm to the user: current numbered-doc count vs the new cap (if the topic
   already has ≥ N docs, the next turn becomes the JUDGE round).
-- `max_rounds: 0` (or absent) = coordinator default (`-MaxNumberedDocs`, 7).
+- `max_rounds: 0` (or absent) = coordinator default (`-MaxNumberedDocs`, **5**).
 
 The only human gate is **code changes** (`allow_code_change=true` after `decision.md`). For classic
 per-round human refereeing, use `--manual` — only when the user asks for it.
@@ -102,4 +102,4 @@ When waiting on a debate, launch `wait_for_review.ps1` (workspace root) with `ru
 
 ## Coordinator notes
 
-`run_auto.ps1 -Watch` loops unattended: it reads each `status.json`, claims a per-topic lock, invokes the `owner` agent's CLI with a role-specific prompt, then verifies progress. It is hardened — per-topic timeout, progress-stall detection (escalates to `owner=human`), **round cap** (`-MaxNumberedDocs`, default 7; per-topic `max_rounds` override — forces a JUDGE verdict so ping-pong debates always terminate), turn-level error catch (loop survives a failed agent), single-instance mutex, and a JSONL run log (5MB rotation). Pin `-ClaudeModel`/`-CodexModel` for review-quality parity with interactive sessions.
+`run_auto.ps1 -Watch` loops unattended: it reads each `status.json`, claims a per-topic lock, invokes the `owner` agent's CLI with a role-specific prompt, then verifies progress. It is hardened — per-topic timeout, progress-stall detection (escalates to `owner=human`), **round cap** (`-MaxNumberedDocs`, default 5; per-topic `max_rounds` override — forces a JUDGE verdict so ping-pong debates always terminate), turn-level error catch (loop survives a failed agent), single-instance mutex, and a JSONL run log (5MB rotation). Pin `-ClaudeModel`/`-CodexModel` for review-quality parity with interactive sessions.

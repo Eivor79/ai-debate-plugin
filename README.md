@@ -135,7 +135,7 @@ Each round has a **role** and writes structured `## Findings` (`id`/`severity`/`
 
 ### Coordinator hardening
 
-Per-topic timeout, progress-stall detection (→ `owner=human`), **round cap** (default 7 numbered docs, per-topic
+Per-topic timeout, progress-stall detection (→ `owner=human`), **round cap** (default 5 numbered docs, per-topic
 `max_rounds` — forces a JUDGE verdict so ping-pong debates always terminate), turn-level error isolation,
 single-instance mutex, JSONL run log with 5MB rotation, **scope guard** (warns+logs worker changes outside the
 workspace), `-ClaudeModel`/`-CodexModel` pinning.
