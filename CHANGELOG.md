@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.1 — 2026-07-10
+
+- **Natural-language round budget, applied live**: "make that topic 5 rounds" (해당 주제 5라운드로) now works — `/review-new --rounds N` at creation, or `update_status.ps1 -Set @{max_rounds=N} -Force` on a running topic; the coordinator re-reads `max_rounds` every poll, so the change takes effect on the very next turn (no restart). 1 round = 1 numbered doc. Template exposes `max_rounds: 0` (0 = coordinator default 7); schema documented; skill carries the mapping.
+
 ## v0.5.0 — 2026-07-10
 
 - **Round cap → guaranteed termination**: coordinator `-MaxNumberedDocs` (default 7; per-topic `max_rounds` override). When a debate ping-pongs past the cap, the next turn is forced into a JUDGE round that writes `decision.md` from the existing rounds. Autonomous runs now always terminate.

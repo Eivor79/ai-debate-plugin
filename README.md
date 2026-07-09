@@ -114,7 +114,7 @@ State is tracked per topic in `status.json`.
 
 | Command | Purpose |
 |---|---|
-| `/ai-debate:review-new <topic> [priority] [--manual] [--no-run]` | **The entry point**: scaffold if needed → create topic → start coordinator → agents debate to `decision.md` → verdict reported |
+| `/ai-debate:review-new <topic> [priority] [--rounds N] [--manual] [--no-run]` | **The entry point**: scaffold if needed → create topic → start coordinator → agents debate to `decision.md` → verdict reported. `--rounds N` = round budget (1 round = 1 doc); saying "make that topic 5 rounds" mid-debate applies on the next turn |
 | `/ai-debate:review-run [--watch ...]` | Manual coordinator control (restart, pin models) |
 | `/ai-debate:review-status [topic]` | Queue / blocked / human-pending summary |
 | `/ai-debate:review-doctor [dir] [--fix]` | Preflight: pwsh/CLIs/workspace freshness; `--fix` re-syncs stale scripts |

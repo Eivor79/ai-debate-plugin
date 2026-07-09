@@ -13,6 +13,7 @@
 ## Optional
 
 - `priority`: `low`, `normal`, `high`, `urgent`
+- `max_rounds`: integer round budget for this topic — 1 round = 1 numbered doc (`NNN_*.md`); at the cap the coordinator forces a JUDGE round that writes `decision.md`. `0`/absent = coordinator default (`-MaxNumberedDocs`, 7). Re-read every poll, so changing it on a running topic applies on the next turn.
 - `next_doc`: expected next document filename
 - `lock_owner`: current worker id
 - `lock_until`: ISO timestamp

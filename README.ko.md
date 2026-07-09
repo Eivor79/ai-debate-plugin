@@ -111,7 +111,7 @@ JUDGE — decision.md 는 생존 findings만 채택:
 
 | 명령 | 설명 |
 |---|---|
-| `/ai-debate:review-new <주제> [priority] [--manual] [--no-run]` | **진입점**: 스캐폴드→토픽→코디네이터 기동→`decision.md`까지 토론→평결 보고 |
+| `/ai-debate:review-new <주제> [priority] [--rounds N] [--manual] [--no-run]` | **진입점**: 스캐폴드→토픽→코디네이터 기동→`decision.md`까지 토론→평결 보고. `--rounds N`=라운드 예산(1라운드=문서 1개); 진행 중 "해당 주제 5라운드로"라고 하면 다음 턴부터 즉시 반영 |
 | `/ai-debate:review-run [--watch ...]` | 코디네이터 수동 제어(재시작, 모델 고정) |
 | `/ai-debate:review-status [topic]` | 큐/blocked/human 요약 |
 | `/ai-debate:review-doctor [dir] [--fix]` | 사전 진단: pwsh/CLI/워크스페이스 최신성; `--fix`로 낡은 스크립트 재동기화 |

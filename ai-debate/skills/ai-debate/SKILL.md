@@ -1,6 +1,6 @@
 ---
 name: ai-debate
-description: Use when the user wants AI agents to debate, adversarially review, or stress-test a topic/design/decision — the AI Debate Review workflow where Claude and Codex exchange structured rounds (design → attack → rebuttal → decision) autonomously and deliver a reasoned conclusion. Triggers on "ai debate", "debate this", "토론", "토론 붙여", "review_bus", "리뷰 진행", "리뷰 돌려", "pr 진행", waiting on a Codex/Claude review round, or status.json owner handoffs.
+description: Use when the user wants AI agents to debate, adversarially review, or stress-test a topic/design/decision — the AI Debate Review workflow where Claude and Codex exchange structured rounds (design → attack → rebuttal → decision) autonomously and deliver a reasoned conclusion. Triggers on "ai debate", "debate this", "토론", "토론 붙여", "review_bus", "리뷰 진행", "리뷰 돌려", "pr 진행", round-count requests ("5라운드로", "N rounds"), waiting on a Codex/Claude review round, or status.json owner handoffs.
 ---
 
 # AI Debate Review workflow
@@ -27,6 +27,21 @@ When the user names something to debate/review ("X를 토론해봐", "debate whe
 Do NOT hand-write rounds yourself, do NOT poll. Multiple topics? Run `/review-new` for each; the queue
 drains by priority. A round cap (default 7 numbered docs, per-topic `max_rounds`) forces a JUDGE verdict
 if the debate ping-pongs, so autonomous runs always terminate.
+
+## Round count control — "이 주제 5라운드로" applies immediately
+
+**1 round = 1 numbered doc** (design = round 1, attack = round 2, rebuttal = round 3, …). "5 rounds"
+means 5 numbered docs, then a forced JUDGE writes `decision.md`.
+
+- **At creation** — user says "5라운드로 토론해줘" / "debate this in 5 rounds": pass `--rounds 5` to
+  `/review-new` (sets `max_rounds: 5` in the topic's `status.json`).
+- **Existing / already-running topic** — user says "해당 주제 5라운드로 해줘" / "make that topic 5 rounds":
+  update the topic's `status.json` immediately via the workspace script:
+  `update_status.ps1 -TopicDir <topic-path> -Set @{ max_rounds = 5 } -Force`
+  This takes effect on the coordinator's **very next poll** — no restart needed (the cap is re-read from
+  `status.json` every turn). Confirm to the user: current numbered-doc count vs the new cap (if the topic
+  already has ≥ N docs, the next turn becomes the JUDGE round).
+- `max_rounds: 0` (or absent) = coordinator default (`-MaxNumberedDocs`, 7).
 
 The only human gate is **code changes** (`allow_code_change=true` after `decision.md`). For classic
 per-round human refereeing, use `--manual` — only when the user asks for it.
